@@ -1,0 +1,11 @@
+{
+    "files.exclude": {
+        ".vs": true,
+        "node_modules": true,
+        "dist": true,
+        "**/bin": true,
+        "**/obj": true,
+        "**/*.fs.js": true,
+        "**/.fable": true
+    }
+}

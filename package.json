@@ -1,0 +1,29 @@
+{
+  "name": "mobf",
+  "version": "0.0.1",
+  "description": "MobX based reactive state management for Fable",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "dotnet build ./src",
+    "test": "dotnet fable tests --outDir dist/tests && mocha dist/tests -r esm"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/robitar/MobF.git"
+  },
+  "author": "rob@kapitar.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/robitar/MobF/issues"
+  },
+  "homepage": "https://github.com/robitar/MobF#readme",
+  "dependencies": {
+    "mobx": "^6.3.2"
+  },
+  "devDependencies": {
+    "esm": "^3.2.25",
+    "mocha": "^8.3.2"
+  }
+}
