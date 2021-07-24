@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="TestUtility.fs" />
     <Compile Include="MobF.test.fs" />
+    <Compile Include="React.test.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,7 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\MobF.fsproj" />
+    <ProjectReference Include="..\src\MobF\MobF.fsproj" />
+    <ProjectReference Include="..\src\MobF.React\MobF.React.fsproj" />
   </ItemGroup>
 
 </Project>

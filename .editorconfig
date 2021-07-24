@@ -1,0 +1,21 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+
+[*.fs]
+indent_style = space
+indent_size = 4
+
+[*.js]
+indent_style = tab
+indent_size = 4
+
+[*.htm{l}]
+indent_style = tab
+indent_size = 4
+
+[*.{json,xml,fsproj}]
+indent_style = space
+indent_size = 2

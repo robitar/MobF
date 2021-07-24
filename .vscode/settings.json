@@ -6,6 +6,7 @@
         "**/bin": true,
         "**/obj": true,
         "**/*.fs.js": true,
+        "**/*.fs.js.map": true,
         "**/.fable": true
     }
 }

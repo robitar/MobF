@@ -1,4 +1,4 @@
-﻿module Tests
+﻿module Tests.MobF
 
 open MobF
 open Fable.Mocha
@@ -88,15 +88,6 @@ let countReactions f =
     let mutable value = -1
     Reaction.autorun (fun () -> f() |> ignore; value <- value + 1)
     { new ICounter with member _.Value = value }
-
-let expectThrows actual =
-    try
-        actual()
-        Expect.equal true false "Expected an exception but none was thrown"
-    with _ ->
-        Expect.pass()
-
-let Should = "Assertion failed"
 
 let modelTests = testList "model" [
     testList "record types" [

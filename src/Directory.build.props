@@ -1,0 +1,31 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputPath>../../dist</OutputPath>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Version>0.0.3</Version>
+    <Authors>Robert Byrne</Authors>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <RepositoryUrl>https://github.com/robitar/MobF</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="*.fsproj; *.fs" PackagePath="fable\" />
+  </ItemGroup>
+
+</Project>

@@ -6,7 +6,7 @@
     "test": "tests"
   },
   "scripts": {
-    "build": "dotnet build ./src",
+    "build": "dotnet build ./MobF.sln",
     "test": "dotnet fable tests --outDir dist/tests && mocha dist/tests -r esm"
   },
   "repository": {
@@ -20,10 +20,16 @@
   },
   "homepage": "https://github.com/robitar/MobF#readme",
   "dependencies": {
-    "mobx": "^6.3.2"
+    "mobx": "^6.3.2",
+    "mobx-react-lite": "^3.2.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
   },
   "devDependencies": {
+    "@testing-library/react": "^12.0.0",
     "esm": "^3.2.25",
+    "global-jsdom": "^8.1.0",
+    "jsdom": "^16.6.0",
     "mocha": "^8.3.2"
   }
 }

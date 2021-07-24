@@ -390,3 +390,4 @@ FodyWeavers.xsd
 
 # Fable
 *.fs.js
+*.fs.js.map

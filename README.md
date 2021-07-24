@@ -1,5 +1,9 @@
 # MobF
 
+[![nuget: MobF](https://img.shields.io/nuget/v/MobF?label=nuget%3A%20MobF)](https://www.nuget.org/packages/MobF)
+
+[![nuget: MobF.React](https://img.shields.io/nuget/v/MobF.React?label=nuget%3A%20MobF.React)](https://www.nuget.org/packages/MobF.React)
+
 MobF is a functional reactive state management library for Fable based on
 [MobX](https://github.com/mobxjs/mobx) and
 [Elmish](https://github.com/elmish/elmish). It attempts to retain the functional
@@ -142,4 +146,101 @@ let model = Input.create<string>()
 
 model.Post(Input.Pending "Hello")
 model.Post(Input.Accepted "Hello, World!")
+```
+
+# React Integration
+
+One of the more compelling features of MobX is the integration for React, which
+provides fine-grained memoization and reactive updates with very little effort.
+MobF.React is a thin wrapper over
+[mobx-react-lite](https://github.com/mobxjs/mobx/tree/main/packages/mobx-react-lite)
+which provides a decoration function called `observer`. 
+
+## Installation
+
+MobF.React supports [Femto](https://github.com/Zaid-Ajaj/Femto), which will set up the
+`mobx-react-lite` dependency automatically:
+
+```
+femto install MobF.React
+```
+
+### Manual installation
+
+.NET library:
+```
+dotnet add package MobF.React
+```
+
+npm package
+```
+npm install mobx-react-lite --save
+```
+
+> Note: this assumes `react` and `react-dom` are already installed, both are required
+
+## Usage
+
+There is a single function called `observer`, which wraps the view definition
+(in React parlance, a 'higher order component'). You then use the result of this
+application as you would any other component.
+
+```F#
+open MobF.React
+
+let Component = observer(fun () -> 
+    div [] [
+        //...
+    ]
+)
+```
+
+## Example
+
+Using the task list model above, you can define the followng reactive view:
+
+```F#
+let tasks = TaskList.create()
+
+tasks.Post(TaskList.Add "Frob the things")
+tasks.Post(TaskList.Add "Also do other things")
+
+open Browser
+open Fable.React
+open Fable.React.Props
+open Fable.React.ReactBindings
+
+open MobF.React
+
+type Props = {
+    Todo: TaskList.Model
+}
+
+//note the observer function wrapping the view definition
+let View = observer(fun (props: Props) ->
+    div [] [
+        h2 [] [
+            str $"There are %i{props.Todo |> TaskList.pendingCount} pending tasks"
+        ]
+        ul [] [
+            for task in props.Todo.State.Tasks do
+                //unlike 'pure' elmish, there is no dispatch function, instead
+                //you post messages directly to the target model
+                li [OnClick (fun _ -> task.Post(Task.Complete))] [
+                    let style =
+                        match task.State.IsDone with
+                        | true -> Style [Color "#ccc"]
+                        | false -> Style []
+
+                    span [style] [str task.State.Description]
+                ]
+        ]
+    ]
+)
+
+ReactDom.render(
+    React.createElement(View, { Todo = tasks }, []),
+    document.getElementById("root")
+)
+
 ```

@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>React integration for MobF, a functional reactive state management library for Fable based on MobX and Elmish.</Description>
+    <NpmDependencies>
+      <NpmPackage Name="mobx-react-lite" Version="gte 3.2.0 lt 4.0.0" ResolutionStrategy="Max" />
+    </NpmDependencies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="3.2.8" />
+    <PackageReference Include="Fable.React" Version="7.4.1" />
+  </ItemGroup>
+
+</Project>
