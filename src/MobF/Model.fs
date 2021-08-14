@@ -16,8 +16,9 @@ type internal ObservableBox<'T>(content: 'T) as this =
 
     [<DefaultValue>]
     val mutable Content: 'T
-   
-type Model<'s, 'm> (init: unit -> 's, update: 's -> 'm -> 's, [<Inject>] ?resolver: ITypeResolver<'s>) =
+
+/// Reactive state which accepts update messages and supports computed views.
+type Model<'s, 'm> (init: unit -> 's, update: 's -> 'm -> 's, [<Inject>] ?resolver: ITypeResolver<'s>) as this =
     let t = resolver.Value.ResolveType()
     let initialState = MobX.runInAction(init)
 
@@ -51,8 +52,20 @@ type Model<'s, 'm> (init: unit -> 's, update: 's -> 'm -> 's, [<Inject>] ?resolv
         else
             failwith "State must be a record or union type"
 
+    do
+        let debugView () = this.ToString()
+        emitJsStatement (this, debugView) "Object.defineProperty($0, 'debugView', { enumerable: true, get: $1 })"
+
+    /// The current state.
     member _.State = storage.Read
 
+    /// <summary>
+    ///     Apply the message to the current state using the update function.
+    /// </summary>
+    /// <remarks>
+    ///     The update function is executed in a MobX action, allowing you to
+    ///     update other models in a transactional fashion.
+    /// </remarks>
     member _.Post msg =
         MobX.runInAction(fun () ->
             let currentState = storage.Read
@@ -60,6 +73,14 @@ type Model<'s, 'm> (init: unit -> 's, update: 's -> 'm -> 's, [<Inject>] ?resolv
             storage.Write nextState
         )
 
+    /// <summary>
+    ///     Evaluate a computed view
+    /// </summary>
+    /// <remarks>
+    ///     On first use, the definition is boxed into a MobX computed
+    ///     observable, and cached on the model with the supplied name as key.
+    ///     Subsequent invocations then evaluete this observable.
+    /// </remarks>
     member model.Computed(definition: 's -> 'a, [<CallerMemberName>] ?name: string) =
         match name with
         | None -> failwith "A name must be provided for the computed definition"
@@ -73,6 +94,8 @@ type Model<'s, 'm> (init: unit -> 's, update: 's -> 'm -> 's, [<Inject>] ?resolv
                 let c = MobX.computed(fun () -> definition model.State)
                 emitJsStatement (model, key, c) "$0[$1] = $2"
                 c.get()
+
+    override _.ToString() = sprintf "%A" storage.Read
 
 module Reaction =
     let autorun = MobX.autorun

@@ -14,11 +14,17 @@
 
   <ItemGroup>
     <PackageReference Include="Fable.Mocha" Version="2.10.0" />
+    <PackageReference Include="MobF" Version="0.0.3" />
+    <PackageReference Include="MobF.React" Version="0.0.3" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\src\MobF\MobF.fsproj" />
-    <ProjectReference Include="..\src\MobF.React\MobF.React.fsproj" />
-  </ItemGroup>
+  <Target Name="CleanTests" AfterTargets="Clean">
+    <ItemGroup>
+        <CleanDirectories Include=".packages" />
+        <CleanDirectories Include="bin" />
+        <CleanDirectories Include="obj" />
+    </ItemGroup>
+    <RemoveDir Directories="@(CleanDirectories)" />
+  </Target>
 
 </Project>

@@ -47,10 +47,12 @@ in the state, just as in regular MobX.
 ## Example
 
 ```F#
+open System
 open MobF
 
 module Task =
     type State = {
+        Id: Guid
         Description: string
         IsDone: bool
     }
@@ -64,6 +66,7 @@ module Task =
 
     let create description =
         let init () = {
+            Id = Guid.NewGuid()
             Description = description
             IsDone = false
         }
@@ -148,13 +151,31 @@ model.Post(Input.Pending "Hello")
 model.Post(Input.Accepted "Hello, World!")
 ```
 
+## Debugging
+
+Each model defines a javascript property called `debugView` which will render
+the state with `sprintf "%A"`. Nested models are handled gracefully.
+
+```
+> console.log(tasks.debugView)
+--
+{ Tasks = [{ Id = 33c2086f-12d4-41d3-8d33-e169467fcf86
+  Description = Also do other things
+  IsDone = true }; { Id = 0fde59af-a68f-4492-ae72-0c78bb7c94bf
+  Description = Frob the things
+  IsDone = true }] }
+```
+
 # React Integration
 
 One of the more compelling features of MobX is the integration for React, which
 provides fine-grained memoization and reactive updates with very little effort.
+
 MobF.React is a thin wrapper over
-[mobx-react-lite](https://github.com/mobxjs/mobx/tree/main/packages/mobx-react-lite)
-which provides a decoration function called `observer`. 
+[mobx-react-lite](https://github.com/mobxjs/mobx/tree/main/packages/mobx-react-lite).
+It provides two mechanisms for creating react components, a function called
+`observer`, and a Fable plugin attribute similar to (and directly inspired by)
+`[<ReactComponent>]` in Feliz.
 
 ## Installation
 
@@ -181,9 +202,69 @@ npm install mobx-react-lite --save
 
 ## Usage
 
-There is a single function called `observer`, which wraps the view definition
-(in React parlance, a 'higher order component'). You then use the result of this
-application as you would any other component.
+### Fable Plugin
+
+Decorating a function with `[<ObserverComponent>]` allows you to define
+components in a more declarative style. It also gives some additional benefits:
+
+- A `displayName` is given to the component, which greatly improves the React
+  devtools experience.
+- Invocations of the function are tranformed into `React.createElement` calls,
+  which allows for a more natural usage.
+- If the props argument has a PascalCased field `Key`, a camelCase `key` field
+  is synthesized, which becomes the React element key.
+
+```F#
+open Fable.React
+open Fable.React.Props
+
+open MobF
+
+//the function must take a single argument and return a value of ReactElement
+[<ObserverComponent>]
+let TaskView (props: {| Task: Task.Model; Key: string |}) =
+    let m = props.Task
+
+    //unlike 'pure' elmish, there is no dispatch function, instead you post
+    //messages directly to the target model
+    li [OnClick (fun _ -> m.Post(Task.Complete))] [
+        let style =
+            match m.State.IsDone with
+            | true -> Style [Color "#ccc"]
+            | false -> Style []
+
+        span [style] [str m.State.Description]
+    ]
+
+[<ObserverComponent>]
+let TaskListView (props: {| TaskList: TaskList.Model |}) =
+    let m = props.TaskList
+    
+    div [] [
+        h2 [] [
+            str $"There are %i{m |> TaskList.pendingCount} pending tasks"
+        ]
+        ul [] [
+            for t in m.State.Tasks do
+                //invocations of the function are automatically transformed into
+                //calls to React.createElement, also note that a key is given
+                TaskView {| Task = t; Key = t.State.Id.ToString() |}
+        ]
+    ]
+
+let tasks = TaskList.create()
+tasks.Post(TaskList.Add "Frob the things")
+tasks.Post(TaskList.Add "Also do other things")
+
+TaskListView {| TaskList = tasks |} |> mountById "root"
+
+```
+
+### Decorator Function
+
+The function `observer`  wraps the view definition (in React parlance, a 'higher
+order component'). You then use the result of this application as you would any
+other component.
 
 ```F#
 open MobF.React
@@ -194,8 +275,6 @@ let Component = observer(fun () ->
     ]
 )
 ```
-
-## Example
 
 Using the task list model above, you can define the followng reactive view:
 

@@ -1,10 +1,12 @@
 {
     "files.exclude": {
         ".vs": true,
-        "node_modules": true,
         "dist": true,
+        "node_modules": true,
+        "**/.packages": true,
         "**/bin": true,
         "**/obj": true,
+        "**/*.fsproj.user": true,
         "**/*.fs.js": true,
         "**/*.fs.js.map": true,
         "**/.fable": true

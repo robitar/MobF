@@ -16,4 +16,12 @@
     <PackageReference Include="Fable.React" Version="7.4.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="*.fsproj; *.fs" PackagePath="fable\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MobF.ObserverPlugin\MobF.ObserverPlugin.fsproj" />
+  </ItemGroup>
+
 </Project>

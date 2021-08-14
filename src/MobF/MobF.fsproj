@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <Description>MobF is a functional reactive state management library for Fable based on MobX and Elmish. It attempts to retain the functional spirit of MVU, while embracing the capabilities of F# to reduce boilerplate and ease component composition.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NpmDependencies>
       <NpmPackage Name="mobx" Version="gte 6.3.2 lt 7.0.0" ResolutionStrategy="Max" />
     </NpmDependencies>
@@ -15,6 +16,10 @@
   <ItemGroup>
     <PackageReference Include="Fable.Browser.Dom" Version="2.4.4" />
     <PackageReference Include="Fable.Core" Version="3.2.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="*.fsproj; *.fs" PackagePath="fable\" />
   </ItemGroup>
 
 </Project>

@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.0.3</Version>
+    <Version>0.1.0</Version>
     <Authors>Robert Byrne</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/robitar/MobF</RepositoryUrl>
@@ -22,10 +22,6 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="*.fsproj; *.fs" PackagePath="fable\" />
   </ItemGroup>
 
 </Project>
