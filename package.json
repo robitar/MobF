@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "dotnet build ./MobF.sln",
-    "test": "dotnet fable tests --outDir dist/tests && mocha dist/tests -r esm"
+    "test": "dotnet fable tests --exclude MobF.ObserverPlugin --outDir dist/tests && mocha dist/tests -r esm"
   },
   "repository": {
     "type": "git",

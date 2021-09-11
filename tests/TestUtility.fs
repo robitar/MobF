@@ -18,6 +18,8 @@ let Should = "Assertion failed"
 module GlobalJsDom =
     let cleanup() = importDefault<unit> "global-jsdom/esm/index"
 
+// fsharplint:disable
+
 module ReactTestingLibrary =
     type IRenderResult =
         abstract container: HTMLElement

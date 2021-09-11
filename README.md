@@ -76,7 +76,9 @@ module Task =
             | Complete -> { state with IsDone = true }
             | Restart -> { state with IsDone = false }
 
-        Model(init, update)
+        Model.useInit init
+        |> Model.andUpdate update
+        |> Model.create
 
 module TaskList =
     type State = {
@@ -87,7 +89,10 @@ module TaskList =
         | Add of string
         | CompleteAll
 
-    type Model = Model<State, Msg>
+    type IComputed =
+        abstract PendingCount: int
+
+    type Model = Model<State, Msg, IComputed>
 
     let create () =
         let init () = {
@@ -103,17 +108,16 @@ module TaskList =
                 state.Tasks |> List.iter (fun x -> x.Post(Task.Complete))
                 state
 
-        Model(init, update)
+        let compute state =
+            { new IComputed with
+                member _.PendingCount =
+                    (0, state.Tasks)
+                    ||> List.fold (fun a x -> if x.State.IsDone then a else a + 1)
+            }
 
-    let pendingCount (model: Model) =
-        model.Computed(fun state -> 
-            (0, state.Tasks) ||> List.fold (fun a x -> if x.State.IsDone then a else a + 1)
-        )
-
-    let summary (model: Model) =
-        model.Computed(fun state ->
-            state.Tasks |> List.map (fun x -> x.State.Description)
-        )
+        Model.useInit init
+        |> Model.andUpdate update
+        |> Model.createWithComputed compute
 
 let tasks = TaskList.create()
 
@@ -121,7 +125,7 @@ tasks.Post(TaskList.Add "foo")
 tasks.Post(TaskList.Add "bar")
 
 Reaction.autorun (fun () -> 
-    printf "There are %i pending tasks" (tasks |> TaskList.pendingCount)
+    printf "There are %i pending tasks" tasks.Computed.PendingCount
 )
 
 tasks.Post(TaskList.CompleteAll)
@@ -143,12 +147,74 @@ module Input =
     let inline create<'T> () =
         let init () = Idle
         let update _ m = m
-        Model<'T>(init, update)
+
+        Model.useInit init
+        |> Model.andUpdate update
+        |> Model.create
 
 let model = Input.create<string>()
 
 model.Post(Input.Pending "Hello")
 model.Post(Input.Accepted "Hello, World!")
+```
+
+## Complex init function
+
+`init` can accept a function of type `Msg -> unit` which allows you to post a
+message to the model instance being created. The messages are queued and execute
+after `init` has completed.
+
+```F#
+let init post =
+    post (TaskList.Add "Do a thing")
+    post (TaskList.Add "Do another thing")
+
+    {
+        Tasks = []
+    }
+```
+
+This is particularly useful for setting up subscriptions, such as timers or
+event handlers.
+
+```F#
+let init post =
+    setInterval (fun () -> post (TaskList.Add "Tick...")) 1000
+    //...
+```
+
+When using init with post, you build up the model slightly differently
+
+```F#
+Model.useInitWithPost init
+|> Model...
+```
+
+## Complex update function
+
+Like `init`, `update` can accept a post function, but in addition, you can also accept the
+computed view. These additional parameters are passed as a tuple along with the
+state.
+
+```F#
+let update state msg =
+    //simple form
+
+let update (state, post) msg =
+    //state with post
+
+let update (state, post, computed) msg =
+    //state, post and computed
+```
+
+As with `init`, these forms require a slightly different model build up.
+
+```F#
+Model.useInit init
+|> Model.andUpdateWithPost update
+
+Model.useInit init
+|> Model.andUpdateWithComputed update
 ```
 
 ## Debugging

@@ -21,7 +21,10 @@ module Colour =
     let create() =
         let init() = Red
         let update _ m = m
-        Model(init, update)
+
+        Model.useInit init
+        |> Model.andUpdate update
+        |> Model.create
 
 type ITestAdapter =
     abstract RenderCount: int
