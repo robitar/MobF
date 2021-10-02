@@ -1,4 +1,4 @@
-namespace MobF
+namespace MobF.React
 
 open Fable
 open Fable.AST
@@ -23,7 +23,7 @@ type ObserverComponentAttribute() =
 
     override _.FableMinimumVersion = "3.0"
 
-    override _.TransformCall(compiler, _, expr) = 
+    override _.TransformCall(compiler, _, expr) =
         let elementType = expr.Type
 
         match expr with
@@ -31,7 +31,7 @@ type ObserverComponentAttribute() =
             let arg = info.Args.[0]
 
             let props =
-                if arg.Type = Fable.Type.Unit then 
+                if arg.Type = Fable.Type.Unit then
                     nullValue
                 elif recordHasField "Key" compiler arg.Type then
                     makeEmit "(($x) => ({ ...$x, key: $x.Key }))($0)" [arg]
@@ -44,7 +44,7 @@ type ObserverComponentAttribute() =
 
 
     override _.Transform(compiler, _, decl) =
-        let error reason = 
+        let error reason =
             let message = sprintf "'%s' is not a valid [<ObserverComponent>] because %s" decl.Name reason
             compiler.LogWarning(message, ?range=decl.Body.Range)
 
