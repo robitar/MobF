@@ -57,7 +57,7 @@ module TaskList =
         let compute state =
             { new IComputed with
                 member _.PendingCount =
-                    (0, state.Tasks) 
+                    (0, state.Tasks)
                     ||> List.fold (fun a x -> if x.State.IsDone then a else a + 1)
             }
 
@@ -91,6 +91,7 @@ module Input =
 module Posting =
     type State = {
         Messages: string list
+        PostFromInit: string -> unit
     }
 
     type Msg =
@@ -105,6 +106,7 @@ module Posting =
             post (PostAppend "b")
             {
                 Messages = ["init"]
+                PostFromInit = PostAppend >> post
             }
 
         let update (state, post) = function
@@ -116,7 +118,6 @@ module Posting =
             | PostAppend message ->
                 let formatted = sprintf "post:%s" message
                 { state with Messages = state.Messages @ [formatted] }
-
 
         Model.useInitWithPost init
         |> Model.andUpdateWithPost update
@@ -140,7 +141,7 @@ let modelTests = testList "model" [
 
         testCase "should update a model" <| fun () ->
             let model = Task.create "x"
-            
+
             model.Post(Task.Describe "renamed")
 
             Should |> Expect.equal (model.State.Description) "renamed"
@@ -251,7 +252,7 @@ let modelTests = testList "model" [
 
     testList "post" [
         testCase "should post from init" <| fun () ->
-            let model = Posting.create()
+            let model = Posting.create ()
 
             let actual =
                 match model.State.Messages with
@@ -260,8 +261,19 @@ let modelTests = testList "model" [
 
             Should |> Expect.isTrue actual
 
+        testCase "should dispatch after init completes" <| fun () ->
+            let model = Posting.create ()
+            model.State.PostFromInit "after-init"
+
+            let actual =
+                match model.State.Messages with
+                | ["init"; "post:a"; "post:b"; "post:after-init"] -> true
+                | _ -> false
+
+            Should |> Expect.isTrue actual
+
         testCase "should post from update" <| fun () ->
-            let model = Posting.create()
+            let model = Posting.create ()
 
             model.Post(Posting.Append "update")
 
@@ -269,7 +281,7 @@ let modelTests = testList "model" [
                 match model.State.Messages with
                 | ["init"; "post:a"; "post:b"; "update"; "post:c"; "post:d"] -> true
                 | _ -> false
-                
+
             Should |> Expect.isTrue actual
     ]
 ]

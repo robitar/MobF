@@ -34,13 +34,21 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     let t = resolver.Value.ResolveType()
 
     let queue = ResizeArray<'m>()
-    let initialState = MobX.runInAction(fun () -> init (queue.Add))
+    let mutable ready = false
+
+    let initialState = MobX.runInAction(fun () ->
+        let post m =
+            if ready then this.Post m
+            else queue.Add m
+        init post
+    )
+
     let computed = MobX.makeAutoObservable(compute initialState, createEmpty<MobX.AnnotationMap>)
 
     let storage =
-        if FSharpType.IsRecord(t) then 
+        if FSharpType.IsRecord(t) then
             let annotations =
-                (createEmpty<MobX.AnnotationMap>, FSharpType.GetRecordFields(t)) 
+                (createEmpty<MobX.AnnotationMap>, FSharpType.GetRecordFields(t))
                 ||> Array.fold (fun a x ->
                     a.[x.Name] <- MobX.observable.ref; a
                 )
@@ -57,9 +65,9 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
 
             let annotations = createEmpty<MobX.AnnotationMap>
             annotations.[nameof box.Content] <- MobX.observable.``struct``
-            
+
             let box = MobX.makeObservable(box, annotations)
-            
+
             { new IModelStorage<_> with
                 member _.Read = box.Content
                 member _.Write x = box.Content <- x
@@ -70,11 +78,13 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     do
         let debugView () = this.ToString()
         emitJsStatement (this, debugView) "Object.defineProperty($0, 'debugView', { enumerable: true, get: $1 })"
-        
+
         if queue.Count > 0 then
             let initMessages = List.ofSeq queue
             queue.Clear()
             initMessages |> Seq.iter this.Post
+
+        ready <- true
 
     /// The current state.
     member _.State = storage.Read
@@ -118,7 +128,7 @@ module Model =
         fun _ -> init ()
 
     /// Use a function which can post messages to create initial model state.
-    let inline useInitWithPost init : Init<'s, 'm> = 
+    let inline useInitWithPost init : Init<'s, 'm> =
         init
 
     /// Use a function to update model state.
