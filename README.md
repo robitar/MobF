@@ -229,9 +229,10 @@ let task = Task.create "Do a thing"
 
 //listen for changes to the 'Description' field on the task
 let sub =
-    task.Subscribe
-        (fun s -> s.Description)
+    task.Subscribe(
+        (fun s -> s.Description),
         (fun value -> printfn "Description is %s" value)
+    )
 
 task.Post (Task.Describe "foo")
 task.Post (Task.Describe "bar")
@@ -239,6 +240,11 @@ task.Post (Task.Describe "bar")
 //cancel the subscription
 sub.Dispose()
 ```
+
+Tro trigger the effect when the subscrption is registered, using the current
+value selected from the state, then set the `triggerImmediately` parameter to
+true. Otherwise, the subscription will only respond to changes which occur after
+the registration has been made.
 
 Note that effects are only triggered when the observed value changes, not
 necessarily when attempts are made to update it. In the example above, setting

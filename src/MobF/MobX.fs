@@ -25,15 +25,15 @@ let runInAction<'T>(fn: unit -> 'T): 'T = importMember "mobx"
 type IDiposeSubscription = unit -> unit
 
 type ISubscriptionOptions =
-    abstract name: string
+    abstract name: string with get, set
 
 type IRepeatingSubscriptionOptions =
-    abstract delay: int
+    abstract delay: int with get, set
 
 type IReactionOptions =
     inherit ISubscriptionOptions
     inherit IRepeatingSubscriptionOptions
-    abstract fireImmediately: bool
+    abstract fireImmediately: bool with get, set
 
 let autorun(fn: unit -> unit) : IDiposeSubscription = importMember "mobx"
 let autorunOpt(fn: unit -> unit, options: IRepeatingSubscriptionOptions) : IDiposeSubscription = import "autorun" "mobx"
