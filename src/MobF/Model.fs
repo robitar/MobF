@@ -141,17 +141,17 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     ///     effectively change the selected value will be ignored. By default,
     ///     effects are only triggered by changes which occur after the
     ///     subscription is registered, to trigger the effect immediately
-    ///     with the current state, set <paramref name ="triggerImediately" /> to
+    ///     with the current state, set <paramref name ="triggerImmediately" /> to
     ///     true.
     /// </remarks>
     /// <param name="select">Select a value from the state to observe</param>
     /// <param name="effect">The effect to trigger when the state changes</param>
-    /// <param name="triggerImediately">Trigger the effect when the subscription is registered</param>
-    member this.Subscribe(select: 's -> 'a, effect: 'a -> unit, ?triggerImediately: bool) =
+    /// <param name="triggerImmediately">Trigger the effect when the subscription is registered</param>
+    member this.Subscribe(select: 's -> 'a, effect: 'a -> unit, ?triggerImmediately: bool) =
         let id = Guid.NewGuid()
 
         let options = createEmpty<MobX.IReactionOptions>
-        options.fireImmediately <- (triggerImediately |> Option.defaultValue false)
+        options.fireImmediately <- (triggerImmediately |> Option.defaultValue false)
 
 #if DEBUG
         options.name <- sprintf "[%s] %A" ns id

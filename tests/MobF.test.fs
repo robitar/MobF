@@ -323,7 +323,7 @@ let modelTests = testList "model" [
             model.Subscribe(
                 selectDescription,
                 (fun x -> if x = "foo" then triggered <- true),
-                triggerImediately = true
+                triggerImmediately = true
             )
             |> ignore
 
