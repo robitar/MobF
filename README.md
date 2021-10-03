@@ -103,7 +103,7 @@ module TaskList =
             | Add desc ->
                 let task = Task.create desc
                 { state with Tasks = task :: state.Tasks }
-                
+
             | CompleteAll ->
                 state.Tasks |> List.iter (fun x -> x.Post(Task.Complete))
                 state
@@ -124,7 +124,7 @@ let tasks = TaskList.create()
 tasks.Post(TaskList.Add "foo")
 tasks.Post(TaskList.Add "bar")
 
-Reaction.autorun (fun () -> 
+Reaction.autorun (fun () ->
     printf "There are %i pending tasks" tasks.Computed.PendingCount
 )
 
@@ -232,6 +232,10 @@ the state with `sprintf "%A"`. Nested models are handled gracefully.
   IsDone = true }] }
 ```
 
+When compiled with Debug configuration, MobF messages are invoked in named
+actions which can be observed in mobx-devtools. In Release configuration, the
+actions are not named, to avoid serialization costs.
+
 # React Integration
 
 One of the more compelling features of MobX is the integration for React, which
@@ -305,7 +309,7 @@ let TaskView (props: {| Task: Task.Model; Key: string |}) =
 [<ObserverComponent>]
 let TaskListView (props: {| TaskList: TaskList.Model |}) =
     let m = props.TaskList
-    
+
     div [] [
         h2 [] [
             str $"There are %i{m |> TaskList.pendingCount} pending tasks"
@@ -335,7 +339,7 @@ other component.
 ```F#
 open MobF.React
 
-let Component = observer(fun () -> 
+let Component = observer(fun () ->
     div [] [
         //...
     ]

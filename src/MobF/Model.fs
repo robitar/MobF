@@ -33,6 +33,12 @@ type Compute<'s, 'd> = ('s -> 'd)
 type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute: Compute<'s, 'd>, [<Inject>] ?resolver: ITypeResolver<'s>) as this =
     let t = resolver.Value.ResolveType()
 
+#if DEBUG
+    let ns = t.Namespace
+#else
+    let ns = ""
+#endif
+
     let queue = ResizeArray<'m>()
     let mutable ready = false
 
@@ -108,11 +114,18 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
         if queue.Count = 1 then
             while queue.Count > 0 do
                 let msg = queue.[0]
-                MobX.runInAction(fun () ->
+
+                let update () =
                     let currentState = storage.Read
                     let nextState = update (currentState, this.Post, this.Computed) msg
                     storage.Write nextState
-                )
+
+#if DEBUG
+                MobX.action($"[%s{ns}] %A{msg}", update)()
+#else
+                MobX.runInAction(update)
+#endif
+
                 queue.RemoveAt(0)
 
     override _.ToString() = sprintf "%A" storage.Read

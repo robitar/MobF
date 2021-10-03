@@ -21,6 +21,9 @@ let observable: IObservableFactory = importMember "mobx"
 
 let makeObservable<'T>(target: 'T, annotations: AnnotationMap): 'T = importMember "mobx"
 let makeAutoObservable<'T>(target: 'T, annotations: AnnotationMap): 'T = importMember "mobx"
-let autorun(fn: unit -> unit) = importMember "mobx"
+
+let action<'T>(name: string, fn: unit -> 'T): unit -> 'T = importMember "mobx"
 let runInAction<'T>(fn: unit -> 'T): 'T = importMember "mobx"
+
+let autorun(fn: unit -> unit) = importMember "mobx"
 let computed<'T>(fn: unit -> 'T): Computation<'T> = importMember "mobx"
