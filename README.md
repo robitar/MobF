@@ -41,8 +41,8 @@ Each model has an immutable `State` and accepts a `Msg` to perform updates. The
 updates can be addressed directly to the model without the involvement of
 containing/parent structures.
 
-Consistency between models is maintained via `Computed` views, which react to changes
-in the state, just as in regular MobX.
+Consistency between models is maintained via `Computed` views and subscriptions,
+which react to changes in the state, just as in regular MobX.
 
 ## Example
 
@@ -217,6 +217,37 @@ Model.useInit init
 |> Model.andUpdateWithComputed update
 ```
 
+## Subscriptions
+
+Subscriptions allow you to trigger effects when observable data changes. To
+register a subscription, call the model's `Subscribe` method, passing in a
+selector and an effect function. This method returns an `IDisposable` which will
+cancel the subscription.
+
+```F#
+let task = Task.create "Do a thing"
+
+//listen for changes to the 'Description' field on the task
+let sub =
+    task.Subscribe
+        (fun s -> s.Description)
+        (fun value -> printfn "Description is %s" value)
+
+task.Post (Task.Describe "foo")
+task.Post (Task.Describe "bar")
+
+//cancel the subscription
+sub.Dispose()
+```
+
+Note that effects are only triggered when the observed value changes, not
+necessarily when attempts are made to update it. In the example above, setting
+the description to `"Do a thing"` five times would not trigger the subscription,
+because the effective value is identical.
+
+The `Model` type itself implements `IDisposable`, and calling `Dispose` will
+cancel all active subscriptions currently registered to it.
+
 ## Debugging
 
 Each model defines a javascript property called `debugView` which will render
@@ -288,7 +319,7 @@ components in a more declarative style. It also gives some additional benefits:
 open Fable.React
 open Fable.React.Props
 
-open MobF
+open MobF.React
 
 //the function must take a single argument and return a value of ReactElement
 [<ObserverComponent>]

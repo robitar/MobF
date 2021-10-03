@@ -1,5 +1,8 @@
 ﻿namespace MobF
 
+open System
+open System.Collections.Generic
+
 open FSharp.Reflection
 
 open Fable.Core
@@ -39,6 +42,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     let ns = ""
 #endif
 
+    let subscriptions = Dictionary<Guid, MobX.IDiposeSubscription>()
     let queue = ResizeArray<'m>()
     let mutable ready = false
 
@@ -128,7 +132,27 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
 
                 queue.RemoveAt(0)
 
+    member this.Subscribe (select: 's -> 'a) (effect: 'a -> unit) =
+        let dispose = MobX.reaction((fun () -> select this.State), effect)
+        let id = Guid.NewGuid()
+
+        subscriptions.Add(id, dispose)
+
+        { new IDisposable with
+            member _.Dispose () =
+                match subscriptions.TryGetValue id with
+                | true, dispose ->
+                    dispose()
+                    subscriptions.Remove(id) |> ignore
+                | false, _ -> ()
+        }
+
     override _.ToString() = sprintf "%A" storage.Read
+
+    interface IDisposable with
+        member _.Dispose() =
+            for dispose in subscriptions.Values do dispose()
+            subscriptions.Clear()
 
 /// Reactive state which accepts update messages.
 type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, [<Inject>] ?resolver: ITypeResolver<'s>) =
@@ -154,7 +178,7 @@ module Model =
 
     /// Create a model with init and update functions.
     let inline create (init, update) =
-        Model<_, _>(init, update)
+        new Model<_, _>(init, update)
 
     /// Use a function which can post messages and read computed values to
     /// update model state.
@@ -163,7 +187,7 @@ module Model =
 
     /// Create a model with init, update and compute functions.
     let inline createWithComputed compute (init, update) =
-        Model<_, _, _>(init, update, compute)
+        new Model<_, _, _>(init, update, compute)
 
 module Reaction =
     let autorun = MobX.autorun

@@ -1,5 +1,7 @@
 ﻿module Tests.MobF
 
+open System
+
 open MobF
 open Fable.Mocha
 
@@ -126,9 +128,13 @@ module Posting =
 type ICounter =
     abstract Value: int
 
+type IDisposableCounter =
+    inherit IDisposable
+    inherit ICounter
+
 let countReactions f =
     let mutable value = -1
-    Reaction.autorun (fun () -> f() |> ignore; value <- value + 1)
+    Reaction.autorun (fun () -> f() |> ignore; value <- value + 1) |> ignore
     { new ICounter with member _.Value = value }
 
 let modelTests = testList "model" [
@@ -283,6 +289,87 @@ let modelTests = testList "model" [
                 | _ -> false
 
             Should |> Expect.isTrue actual
+    ]
+
+    testList "subscription" [
+        let effectCounter selector (model: Task.Model) =
+            let mutable count = 0
+            let sub = model.Subscribe selector (fun _ -> count <- count + 1)
+            { new IDisposableCounter with
+                member _.Value = count
+                member _.Dispose () = sub.Dispose()
+            }
+
+        let postAbc (model: Task.Model) =
+            model.Post(Task.Describe "a")
+            model.Post(Task.Describe "b")
+            model.Post(Task.Describe "c")
+
+        testCase "should trigger effects" <| fun () ->
+            let model = Task.create "foo"
+
+            let counter = model |> effectCounter (fun x -> x.Description)
+            model |> postAbc
+
+            Should |> Expect.equal counter.Value 3
+
+        testCase "should not trigger events if data does not change" <| fun () ->
+            let model = Task.create "foo"
+            let counter = model |> effectCounter (fun x -> x.Description)
+
+            model.Post(Task.Describe "foo")
+            model.Post(Task.Describe "foo")
+            model.Post(Task.Describe "foo")
+
+            Should |> Expect.equal 0 counter.Value
+
+        testCase "should provide updated value to the effect" <| fun () ->
+            let model = Task.create "foo"
+
+            let mutable values = List.empty
+            model.Subscribe (fun x -> x.Description) (fun x -> values <- x :: values) |> ignore
+            model |> postAbc
+
+            Should |> Expect.equal ["c"; "b"; "a"] values
+
+        testCase "should cancel subscriptions" <| fun () ->
+            let model = Task.create "foo"
+            let counter = model |> effectCounter (fun x -> x.Description)
+
+            counter.Dispose()
+            model |> postAbc
+
+            Should |> Expect.equal 0 counter.Value
+
+        testCase "should cancel all subscriptions when model is disposed" <| fun () ->
+            let model = Task.create "foo"
+
+            let c1 = model |> effectCounter (fun x -> x.Description)
+            let c2 = model |> effectCounter (fun x -> x.Description)
+            let c3 = model |> effectCounter (fun x -> x.Description)
+
+            (model :> IDisposable).Dispose()
+
+            model |> postAbc
+
+            Should |> Expect.equal 0 c1.Value
+            Should |> Expect.equal 0 c2.Value
+            Should |> Expect.equal 0 c3.Value
+
+        testCase "should tolerate multiple attempts to dispose" <| fun () ->
+            let model = Task.create "foo"
+
+            let c1 = model |> effectCounter (fun x -> x.Description)
+            let c2 = model |> effectCounter (fun x -> x.Description)
+
+            c1.Dispose()
+            (model :> IDisposable).Dispose()
+            c2.Dispose()
+
+            model |> postAbc
+
+            Should |> Expect.equal 0 c1.Value
+            Should |> Expect.equal 0 c2.Value
     ]
 ]
 
