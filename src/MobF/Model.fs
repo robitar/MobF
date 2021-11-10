@@ -1,12 +1,12 @@
 ﻿namespace MobF
 
 open System
-open System.Collections.Generic
-
 open FSharp.Reflection
 
 open Fable.Core
 open Fable.Core.JsInterop
+
+open MobF.Subscribe
 
 type internal IModelStorage<'T> =
     abstract Read: 'T
@@ -42,15 +42,20 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     let ns = ""
 #endif
 
-    let subscriptions = Dictionary<Guid, MobX.IDiposeSubscription>()
     let queue = ResizeArray<'m>()
     let mutable ready = false
+
+    let subject = new ModelSubject<'s>((fun () -> this.State), ns)
+    let withSubscribable = fun f -> f (subject :> ISubscribable<'s>)
 
     let initialState = MobX.runInAction(fun () ->
         let post m =
             if ready then this.Post m
             else queue.Add m
-        init post
+
+        subject |> Subscribe.capture (fun () ->
+            init post
+        )
     )
 
     let computed = MobX.makeAutoObservable(compute initialState, createEmpty<MobX.AnnotationMap>)
@@ -120,61 +125,35 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
                 let msg = queue.[0]
 
                 let update () =
-                    let currentState = storage.Read
-                    let nextState = update (currentState, this.Post, this.Computed) msg
-                    storage.Write nextState
+                    subject |> Subscribe.capture (fun () ->
+                        let currentState = storage.Read
+                        let nextState = update (currentState, this.Post, this.Computed) msg
+                        storage.Write nextState
+                    )
 
 #if DEBUG
-                MobX.action($"[%s{ns}] %A{msg}", update)()
+                MobX.action($"post [%s{ns}] %A{msg}", update)()
 #else
                 MobX.runInAction(update)
 #endif
 
                 queue.RemoveAt(0)
 
-    /// <summary>
-    ///     Register an effect which is triggered when selected state changes.
-    /// </summary>
-    /// <remarks>
-    ///     The effect is only triggered when the selected value differs from
-    ///     its previous state; in other words, successive updates which do not
-    ///     effectively change the selected value will be ignored. By default,
-    ///     effects are only triggered by changes which occur after the
-    ///     subscription is registered, to trigger the effect immediately
-    ///     with the current state, set <paramref name ="triggerImmediately" /> to
-    ///     true.
-    /// </remarks>
-    /// <param name="select">Select a value from the state to observe</param>
-    /// <param name="effect">The effect to trigger when the state changes</param>
-    /// <param name="triggerImmediately">Trigger the effect when the subscription is registered</param>
-    member this.Subscribe(select: 's -> 'a, effect: 'a -> unit, ?triggerImmediately: bool) =
-        let id = Guid.NewGuid()
+    interface ISubscribable<'s> with
+        member _.IsActive =
+            withSubscribable <| fun x -> x.IsActive
 
-        let options = createEmpty<MobX.IReactionOptions>
-        options.fireImmediately <- (triggerImmediately |> Option.defaultValue false)
+        member _.AutoSubscribe(subscriber, select, effect, triggerImmediately) =
+            withSubscribable <| fun x -> x.AutoSubscribe(subscriber, select, effect, triggerImmediately)
 
-#if DEBUG
-        options.name <- sprintf "[%s] %A" ns id
-#endif
-
-        let dispose = MobX.reactionOpt((fun () -> select this.State), effect, options)
-        subscriptions.Add(id, dispose)
-
-        { new IDisposable with
-            member _.Dispose () =
-                match subscriptions.TryGetValue id with
-                | true, dispose ->
-                    dispose()
-                    subscriptions.Remove(id) |> ignore
-                | false, _ -> ()
-        }
-
-    override _.ToString() = sprintf "%A" storage.Read
+        member _.Subscribe(select, effect, triggerImmediately) =
+            withSubscribable <| fun x -> x.Subscribe(select, effect, triggerImmediately)
 
     interface IDisposable with
         member _.Dispose() =
-            for dispose in subscriptions.Values do dispose()
-            subscriptions.Clear()
+            (subject :> IDisposable).Dispose()
+
+    override _.ToString() = sprintf "%A" storage.Read
 
 /// Reactive state which accepts update messages.
 type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, [<Inject>] ?resolver: ITypeResolver<'s>) =
@@ -210,6 +189,10 @@ module Model =
     /// Create a model with init, update and compute functions.
     let inline createWithComputed compute (init, update) =
         new Model<_, _, _>(init, update, compute)
+
+    /// Dispose a model and any dependent operations like subscriptions
+    let inline dispose (model: Model<_, _, _>) =
+        (model :> IDisposable).Dispose()
 
 module Reaction =
     let autorun = MobX.autorun

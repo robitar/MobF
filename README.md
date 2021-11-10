@@ -192,9 +192,9 @@ Model.useInitWithPost init
 
 ## Complex update function
 
-Like `init`, `update` can accept a post function, but in addition, you can also accept the
-computed view. These additional parameters are passed as a tuple along with the
-state.
+Like `init`, `update` can accept a post function, but in addition, you can also
+accept the computed view. These additional parameters are passed as a tuple
+along with the state.
 
 ```F#
 let update state msg =
@@ -203,11 +203,11 @@ let update state msg =
 let update (state, post) msg =
     //state with post
 
-let update (state, post, computed) msg =
+let update (state, post, computed: IComputed) msg =
     //state, post and computed
 ```
 
-As with `init`, these forms require a slightly different model build up.
+As with `init`, these forms require a slightly different model build-up.
 
 ```F#
 Model.useInit init
@@ -219,20 +219,24 @@ Model.useInit init
 
 ## Subscriptions
 
-Subscriptions allow you to trigger effects when observable data changes. To
-register a subscription, call the model's `Subscribe` method, passing in a
-selector and an effect function. This method returns an `IDisposable` which will
-cancel the subscription.
+Subscriptions allow you to trigger effects when observable data changes. The
+`Subscribe` module provides two kinds, manual and automatic. A manual
+subscription is active until explicitly disposed. An automatic subscription is
+bound to the lifetimes of the listener and target, when either of them are
+disposed, the subscription is cancelled.
+
+Automatic subscriptions can only be registered within the context of an `init`
+or `update` function (or any functions called by them); where the current model
+serves as the listener.
 
 ```F#
 let task = Task.create "Do a thing"
 
 //listen for changes to the 'Description' field on the task
 let sub =
-    task.Subscribe(
-        (fun s -> s.Description),
+    task |> Subscribe.manual
+        (fun s -> s.Description)
         (fun value -> printfn "Description is %s" value)
-    )
 
 task.Post (Task.Describe "foo")
 task.Post (Task.Describe "bar")
@@ -241,18 +245,41 @@ task.Post (Task.Describe "bar")
 sub.Dispose()
 ```
 
-Tro trigger the effect when the subscrption is registered, using the current
-value selected from the state, then set the `triggerImmediately` parameter to
-true. Otherwise, the subscription will only respond to changes which occur after
-the registration has been made.
+```F#
+type State = {
+    Description: string
+}
+
+type Msg =
+    | Init
+    | UpdateDescription of string
+
+//...
+
+let update (state, post) = function
+    | Init ->
+        //register an auto subscription which will remain active until
+        //our model (listener), or the task (target), are disposed
+        task |> Subscribe.auto
+            (fun s -> s.Description)
+            (fun desc -> post (UpdateDescription desc))
+        state
+
+    | UpdateDescription desc ->
+        { state with Description = desc }
+```
+
+To trigger the effect immediately upon registering, use the 'immediate' variants
+`manualImmediate` and `autoImmediate`. Otherwise, the subscriptions will only
+respond to changes which occur after the registration has been made.
 
 Note that effects are only triggered when the observed value changes, not
-necessarily when attempts are made to update it. In the example above, setting
-the description to `"Do a thing"` five times would not trigger the subscription,
-because the effective value is identical.
+necessarily when attempts are made to update it. In the example of manual
+subscriptions above, setting the description to `"Do a thing"` five times would
+not trigger the subscription, because the effective value is identical.
 
-The `Model` type itself implements `IDisposable`, and calling `Dispose` will
-cancel all active subscriptions currently registered to it.
+The `Model` type implements `IDisposable`, and calling `Dispose` will cancel all
+active and manual subscriptions it is currently participating in.
 
 ## Debugging
 
@@ -286,8 +313,8 @@ It provides two mechanisms for creating react components, a function called
 
 ## Installation
 
-MobF.React supports [Femto](https://github.com/Zaid-Ajaj/Femto), which will set up the
-`mobx-react-lite` dependency automatically:
+MobF.React supports [Femto](https://github.com/Zaid-Ajaj/Femto), which will set
+up the `mobx-react-lite` dependency automatically:
 
 ```
 femto install MobF.React
@@ -305,7 +332,8 @@ npm package
 npm install mobx-react-lite --save
 ```
 
-> Note: this assumes `react` and `react-dom` are already installed, both are required
+> Note: this assumes `react` and `react-dom` are already installed, both are
+> required
 
 ## Usage
 
@@ -383,7 +411,7 @@ let Component = observer(fun () ->
 )
 ```
 
-Using the task list model above, you can define the followng reactive view:
+Using the task list model above, you can define the following reactive view:
 
 ```F#
 let tasks = TaskList.create()

@@ -125,6 +125,51 @@ module Posting =
         |> Model.andUpdateWithPost update
         |> Model.create
 
+module Autosub =
+    type State = {
+        One: int
+        Two: int
+    }
+
+    type Msg =
+        | SubscribeOne of Type
+        | SubscribeTwo of Type
+        | SetOne of int
+        | SetTwo of int
+        | Invoke of (unit -> unit)
+
+    and Type = Model<State, Msg>
+
+    let create () =
+        let init () =
+            {
+                One = 0
+                Two = 0
+            }
+
+        let update (state, post) = function
+            | SubscribeOne target ->
+                target |> Subscribe.auto (fun x -> x.One) (SetOne >> post)
+                state
+
+            | SubscribeTwo target ->
+                target |> Subscribe.auto (fun x -> x.Two) (SetTwo >> post)
+                state
+
+            | SetOne x ->
+                { state with One = x }
+
+            | SetTwo x ->
+                { state with Two = x }
+
+            | Invoke action ->
+                action()
+                state
+
+        Model.useInit init
+        |> Model.andUpdateWithPost update
+        |> Model.create
+
 type ICounter =
     abstract Value: int
 
@@ -292,100 +337,189 @@ let modelTests = testList "model" [
     ]
 
     testList "subscription" [
-        let effectCounter selector (model: Task.Model) =
-            let mutable count = 0
-            let sub = model.Subscribe(selector, (fun _ -> count <- count + 1))
-            { new IDisposableCounter with
-                member _.Value = count
-                member _.Dispose () = sub.Dispose()
-            }
+        testList "manual" [
+            let effectCounter selector (model: Task.Model) =
+                let mutable count = 0
+                let sub = model |> Subscribe.manual selector (fun _ -> count <- count + 1)
+                { new IDisposableCounter with
+                    member _.Value = count
+                    member _.Dispose () = sub.Dispose()
+                }
 
-        let selectDescription (state: Task.State) =
-            state.Description
+            let selectDescription (state: Task.State) =
+                state.Description
 
-        let postAbc (model: Task.Model) =
-            model.Post(Task.Describe "a")
-            model.Post(Task.Describe "b")
-            model.Post(Task.Describe "c")
+            let postAbc (model: Task.Model) =
+                model.Post(Task.Describe "a")
+                model.Post(Task.Describe "b")
+                model.Post(Task.Describe "c")
 
-        testCase "should trigger effects" <| fun () ->
-            let model = Task.create "foo"
+            testCase "should trigger effects" <| fun () ->
+                let model = Task.create "foo"
 
-            let counter = model |> effectCounter selectDescription
-            model |> postAbc
+                let counter = model |> effectCounter selectDescription
+                model |> postAbc
 
-            Should |> Expect.equal counter.Value 3
+                Should |> Expect.equal counter.Value 3
 
-        testCase "should trigger effects immediately" <| fun () ->
-            let model = Task.create "foo"
-            let mutable triggered = false
+            testCase "should trigger effects immediately" <| fun () ->
+                let model = Task.create "foo"
+                let mutable triggered = false
 
-            model.Subscribe(
-                selectDescription,
-                (fun x -> if x = "foo" then triggered <- true),
-                triggerImmediately = true
-            )
-            |> ignore
+                model
+                |> Subscribe.manualImmediate
+                    selectDescription
+                    (fun x -> if x = "foo" then triggered <- true)
+                |> ignore
 
-            Should |> Expect.isTrue triggered
+                Should |> Expect.isTrue triggered
 
-        testCase "should not trigger events if data does not change" <| fun () ->
-            let model = Task.create "foo"
-            let counter = model |> effectCounter selectDescription
+            testCase "should not trigger effects if data does not change" <| fun () ->
+                let model = Task.create "foo"
+                let counter = model |> effectCounter selectDescription
 
-            model.Post(Task.Describe "foo")
-            model.Post(Task.Describe "foo")
-            model.Post(Task.Describe "foo")
+                model.Post(Task.Describe "foo")
+                model.Post(Task.Describe "foo")
+                model.Post(Task.Describe "foo")
 
-            Should |> Expect.equal 0 counter.Value
+                Should |> Expect.equal 0 counter.Value
 
-        testCase "should provide updated value to the effect" <| fun () ->
-            let model = Task.create "foo"
+            testCase "should provide updated value to the effect" <| fun () ->
+                let model = Task.create "foo"
 
-            let mutable values = List.empty
-            model.Subscribe(selectDescription, (fun x -> values <- x :: values)) |> ignore
-            model |> postAbc
+                let mutable values = List.empty
+                model |> Subscribe.manual selectDescription (fun x -> values <- x :: values) |> ignore
+                model |> postAbc
 
-            Should |> Expect.equal ["c"; "b"; "a"] values
+                Should |> Expect.equal ["c"; "b"; "a"] values
 
-        testCase "should cancel subscriptions" <| fun () ->
-            let model = Task.create "foo"
-            let counter = model |> effectCounter selectDescription
+            testCase "should cancel subscriptions" <| fun () ->
+                let model = Task.create "foo"
+                let counter = model |> effectCounter selectDescription
 
-            counter.Dispose()
-            model |> postAbc
+                counter.Dispose()
+                model |> postAbc
 
-            Should |> Expect.equal 0 counter.Value
+                Should |> Expect.equal 0 counter.Value
 
-        testCase "should cancel all subscriptions when model is disposed" <| fun () ->
-            let model = Task.create "foo"
+            testCase "should cancel all subscriptions when model is disposed" <| fun () ->
+                let model = Task.create "foo"
 
-            let c1 = model |> effectCounter selectDescription
-            let c2 = model |> effectCounter selectDescription
-            let c3 = model |> effectCounter selectDescription
+                let c1 = model |> effectCounter selectDescription
+                let c2 = model |> effectCounter selectDescription
+                let c3 = model |> effectCounter selectDescription
 
-            (model :> IDisposable).Dispose()
+                (model :> IDisposable).Dispose()
 
-            model |> postAbc
+                model |> postAbc
 
-            Should |> Expect.equal 0 c1.Value
-            Should |> Expect.equal 0 c2.Value
-            Should |> Expect.equal 0 c3.Value
+                Should |> Expect.equal 0 c1.Value
+                Should |> Expect.equal 0 c2.Value
+                Should |> Expect.equal 0 c3.Value
 
-        testCase "should tolerate multiple attempts to dispose" <| fun () ->
-            let model = Task.create "foo"
+            testCase "should tolerate multiple attempts to dispose" <| fun () ->
+                let model = Task.create "foo"
 
-            let c1 = model |> effectCounter selectDescription
-            let c2 = model |> effectCounter selectDescription
+                let c1 = model |> effectCounter selectDescription
+                let c2 = model |> effectCounter selectDescription
 
-            c1.Dispose()
-            (model :> IDisposable).Dispose()
-            c2.Dispose()
+                c1.Dispose()
+                (model :> IDisposable).Dispose()
+                c2.Dispose()
 
-            model |> postAbc
+                model |> postAbc
 
-            Should |> Expect.equal 0 c1.Value
-            Should |> Expect.equal 0 c2.Value
+                Should |> Expect.equal 0 c1.Value
+                Should |> Expect.equal 0 c2.Value
+        ]
+
+        testList "auto" [
+            let makePair () = (Autosub.create(), Autosub.create())
+            let makeThree () = (Autosub.create(), Autosub.create(), Autosub.create())
+
+            let subOne (target: Autosub.Type) (listener: Autosub.Type) = listener.Post(Autosub.SubscribeOne target)
+            let subTwo (target: Autosub.Type) (listener: Autosub.Type) = listener.Post(Autosub.SubscribeTwo target)
+
+            let setOne value (m: Autosub.Type) = m.Post(Autosub.SetOne value)
+            let setTwo value (m: Autosub.Type) = m.Post(Autosub.SetTwo value)
+
+            let assertActive (expected: bool) (listener: Subscribe.ISubscribable<_>) = Should |> Expect.equal expected listener.IsActive
+            let shouldBeActive listener = assertActive true listener
+            let shouldNotBeActive listener = assertActive false listener
+
+            testCase "should activate listener and target" <| fun () ->
+                let (listener, target) = makePair ()
+                listener |> subOne target
+
+                listener |> shouldBeActive
+                target |> shouldBeActive
+
+            testCase "should cancel the subscription when the listener is disposed" <| fun () ->
+                let (listener, target) = makePair ()
+
+                listener |> subOne target
+                listener |> Model.dispose
+
+                listener |> shouldNotBeActive
+                target |> shouldNotBeActive
+
+            testCase "should cancel the subscription when the target is disposed" <| fun () ->
+                let (listener, target) = makePair ()
+
+                listener |> subOne target
+                target |> Model.dispose
+
+                listener |> shouldNotBeActive
+                target |> shouldNotBeActive
+
+            testCase "should cancel all subscriptions when the target is disposed" <| fun () ->
+                let (a, b, c) = makeThree ()
+
+                a |> subOne c
+                b |> subOne c
+
+                c |> Model.dispose
+
+                a |> shouldNotBeActive
+                b |> shouldNotBeActive
+
+            testCase "should trigger effects" <| fun () ->
+                let (a, b) = makePair ()
+
+                a |> subOne b
+                b |> setOne 123
+
+                Should |> Expect.equal 123 a.State.One
+
+            testCase "should capture multiple subscriptions" <| fun () ->
+                let (a, b, c) = makeThree ()
+
+                a |> subOne b
+                a |> subTwo c
+
+                b |> setOne 123
+                c |> setTwo 456
+
+                Should |> Expect.equal 123 a.State.One
+                Should |> Expect.equal 456 a.State.Two
+
+            testCase "should attach subscriptions to the right model in nested actions" <| fun () ->
+                let (listener, target) = makePair ()
+
+                listener.Post(Autosub.Invoke (fun () ->
+                    target |> subOne listener
+
+                    target.Post(Autosub.Invoke (fun () ->
+                        listener |> subTwo target
+                    ))
+                ))
+
+                listener |> setOne 123
+                target |> setTwo 456
+
+                Should |> Expect.equal 123 target.State.One
+                Should |> Expect.equal 456 listener.State.Two
+        ]
     ]
 ]
 

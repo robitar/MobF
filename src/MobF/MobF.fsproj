@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <Compile Include="MobX.fs" />
+    <Compile Include="Subscribe.fs" />
     <Compile Include="Model.fs" />
   </ItemGroup>
 
