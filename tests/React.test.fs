@@ -84,7 +84,7 @@ let renderTest (makeAdapter: unit -> ITestAdapter) f =
         try f adapter result
         finally ReactTestingLibrary.cleanup()
 
-let buildCases (makeAdapter: unit -> ITestAdapter) = 
+let buildCases (makeAdapter: unit -> ITestAdapter) =
     [
         testCase "should render initial state" <| renderTest makeAdapter (fun _ result ->
             Should |> Expect.equal (result |> getRenderedColour) "Red"

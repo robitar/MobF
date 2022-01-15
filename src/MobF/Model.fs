@@ -1,6 +1,7 @@
 ﻿namespace MobF
 
 open System
+open System.Collections.Generic
 open FSharp.Reflection
 
 open Fable.Core
@@ -20,6 +21,45 @@ type internal ObservableBox<'T>(content: 'T) as this =
 
 /// A placeholder interface for models which have no computed values.
 type IEmptyComputation = interface end
+
+/// Marker interface for extendable computations.
+type IExtendable<'T> = interface end
+
+module internal AttachedProperty =
+    let inline set value instance key =
+        emitJsStatement (instance, key, value) "$0[$1] = $2" |> ignore
+
+    let inline get key instance =
+        emitJsExpr<_ option> (instance, key) "$0[$1]"
+
+    let inline getOrSet factory instance key =
+        match (instance |> get key) with
+        | Some value -> value
+        | None ->
+            let value = factory ()
+            (instance, key) ||> set value
+            value
+
+[<AutoOpen>]
+module Extendable =
+    let internal stateSymbol = emitJsExpr<obj> null "Symbol('state')"
+    let internal extensionsSymbol = emitJsExpr<obj> null "Symbol('extensions')"
+
+    type IExtendable<'T> with
+        /// Extend computation with additional definitions.
+        member this.Extend(define: 'T -> 'E, [<Inject>] ?resolver: ITypeResolver<'E>) : 'E =
+            let key = resolver.Value.ResolveType().FullName
+            let extensions = (this, extensionsSymbol) ||> AttachedProperty.getOrSet Dictionary<string, obj>
+
+            match extensions.TryGetValue(key) with
+            | true, value -> value :?> 'E
+            | false, _ ->
+                match (this |> AttachedProperty.get stateSymbol) with
+                | None -> failwith "This type does not support extension"
+                | Some (state: IModelStorage<'T>) ->
+                    let value = MobX.makeAutoObservable(define state.Read, createEmpty<MobX.AnnotationMap>)
+                    extensions.Add(key, value)
+                    value
 
 module EmptyComputation =
     /// Defines an empty computation.
@@ -99,6 +139,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
             queue.Clear()
             initMessages |> Seq.iter this.Post
 
+        (computed, stateSymbol) ||> AttachedProperty.set storage
         ready <- true
 
     /// The current state.

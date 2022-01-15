@@ -170,18 +170,6 @@ module Autosub =
         |> Model.andUpdateWithPost update
         |> Model.create
 
-type ICounter =
-    abstract Value: int
-
-type IDisposableCounter =
-    inherit IDisposable
-    inherit ICounter
-
-let countReactions f =
-    let mutable value = -1
-    Reaction.autorun (fun () -> f() |> ignore; value <- value + 1) |> ignore
-    { new ICounter with member _.Value = value }
-
 let modelTests = testList "model" [
     testList "record types" [
         testCase "should create a model" <| fun () ->
