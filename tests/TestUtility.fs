@@ -27,8 +27,41 @@ type IDisposableCounter =
 
 let countReactions f =
     let mutable value = -1
-    Reaction.autorun (fun () -> f() |> ignore; value <- value + 1) |> ignore
+    Reactive.autorun (fun () -> f() |> ignore; value <- value + 1) |> ignore
     { new ICounter with member _.Value = value }
+
+module Note =
+    type State = {
+        Text: string
+    }
+
+    type Msg =
+        | Edit of string
+
+    type IComputed =
+        inherit IExtendable<State>
+        abstract IsEmpty: bool
+
+    type Type = Model<State, Msg, IComputed>
+
+    let create text =
+        let init () =
+            { Text = text }
+
+        let update state = function
+            | Edit text -> { state with Text = text }
+
+        let compute state =
+            { new IComputed with
+                member _.IsEmpty =
+                    match state.Text with
+                    | "" -> true
+                    | _ -> false
+            }
+
+        Model.useInit init
+        |> Model.andUpdate update
+        |> Model.createWithComputed compute
 
 module GlobalJsDom =
     let cleanup() = importDefault<unit> "global-jsdom/esm/index"

@@ -43,4 +43,8 @@ let reactionOpt(data: unit -> 'a, effect: 'a -> unit, options: IReactionOptions)
 type Computation<'T> =
     abstract get: unit -> 'T
 
-let computed<'T>(fn: unit -> 'T): Computation<'T> = importMember "mobx"
+type IComputedFactory =
+    abstract ``struct``: Annotation
+    [<Emit "$0($1...)">] abstract Invoke: (unit -> 'T) -> Computation<'T>
+
+let computed : IComputedFactory = importMember "mobx"

@@ -235,5 +235,9 @@ module Model =
     let inline dispose (model: Model<_, _, _>) =
         (model :> IDisposable).Dispose()
 
-module Reaction =
+module Reactive =
     let autorun = MobX.autorun
+
+    let seq f =
+        let computed = MobX.computed.Invoke(f)
+        seq { yield! computed.get() }
