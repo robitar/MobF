@@ -8,6 +8,7 @@
     <Compile Include="TestUtility.fs" />
     <Compile Include="MobF.test.fs" />
     <Compile Include="Extension.test.fs" />
+    <Compile Include="Computation.fs" />
     <Compile Include="Reactive.test.fs" />
     <Compile Include="React.test.fs" />
   </ItemGroup>

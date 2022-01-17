@@ -7,6 +7,7 @@ open FSharp.Reflection
 open Fable.Core
 open Fable.Core.JsInterop
 
+open MobF
 open MobF.Subscribe
 
 type internal IModelStorage<'T> =
@@ -25,12 +26,15 @@ type IEmptyComputation = interface end
 /// Marker interface for extendable computations.
 type IExtendable<'T> = interface end
 
-module internal AttachedProperty =
+module internal Expando =
     let inline set value instance key =
         emitJsStatement (instance, key, value) "$0[$1] = $2" |> ignore
 
     let inline get key instance =
         emitJsExpr<_ option> (instance, key) "$0[$1]"
+
+    let inline delete key instance =
+        emitJsStatement<_ option> (instance, key) "delete $0[$1]" |> ignore
 
     let inline getOrSet factory instance key =
         match (instance |> get key) with
@@ -39,6 +43,42 @@ module internal AttachedProperty =
             let value = factory ()
             (instance, key) ||> set value
             value
+
+module Computation =
+    let internal JSObject = JS.Constructors.Object
+    let internal annotationsSymbol = emitJsExpr<obj> null "Symbol('annotations')"
+
+    /// Defines an empty computation.
+    let empty _ =
+        { new IEmptyComputation }
+
+    /// Applies structural change detection behaviour to the given computation.
+    let structural (computation: 'T when 'T : not struct) =
+        let annotations = createEmpty<MobX.AnnotationMap>
+
+        let protoOf x = JSObject.getPrototypeOf(x)
+        let isObjectProto x = (protoOf x) = null
+
+        box computation
+        |> Seq.unfold (fun p ->
+            if isObjectProto p then None
+            else Some (p, protoOf p)
+        )
+        |> Seq.collect JSObject.getOwnPropertyNames
+        |> Seq.iter (fun name -> annotations.[name] <- MobX.computed.``struct``)
+
+        (computation, annotationsSymbol) ||> Expando.set annotations
+        computation
+
+    let internal create computation =
+        let annotations =
+            match computation |> Expando.get annotationsSymbol with
+            | None -> createEmpty<MobX.AnnotationMap>
+            | Some x ->
+                computation |> Expando.delete annotationsSymbol
+                x
+
+        MobX.makeAutoObservable(computation, annotations)
 
 [<AutoOpen>]
 module Extendable =
@@ -49,22 +89,17 @@ module Extendable =
         /// Extend computation with additional definitions.
         member this.Extend(define: 'T -> 'E, [<Inject>] ?resolver: ITypeResolver<'E>) : 'E =
             let key = resolver.Value.ResolveType().FullName
-            let extensions = (this, extensionsSymbol) ||> AttachedProperty.getOrSet Dictionary<string, obj>
+            let extensions = (this, extensionsSymbol) ||> Expando.getOrSet Dictionary<string, obj>
 
             match extensions.TryGetValue(key) with
             | true, value -> value :?> 'E
             | false, _ ->
-                match (this |> AttachedProperty.get stateSymbol) with
+                match (this |> Expando.get stateSymbol) with
                 | None -> failwith "This type does not support extension"
                 | Some (state: IModelStorage<'T>) ->
-                    let value = MobX.makeAutoObservable(define state.Read, createEmpty<MobX.AnnotationMap>)
+                    let value = Computation.create (define state.Read)
                     extensions.Add(key, value)
                     value
-
-module EmptyComputation =
-    /// Defines an empty computation.
-    let compute _ =
-        { new IEmptyComputation }
 
 type Post<'m> = ('m -> unit)
 
@@ -98,7 +133,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
         )
     )
 
-    let computed = MobX.makeAutoObservable(compute initialState, createEmpty<MobX.AnnotationMap>)
+    let computed = Computation.create (compute initialState)
 
     let storage =
         if FSharpType.IsRecord(t) then
@@ -139,7 +174,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
             queue.Clear()
             initMessages |> Seq.iter this.Post
 
-        (computed, stateSymbol) ||> AttachedProperty.set storage
+        (computed, stateSymbol) ||> Expando.set storage
         ready <- true
 
     /// The current state.
@@ -198,7 +233,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
 
 /// Reactive state which accepts update messages.
 type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, [<Inject>] ?resolver: ITypeResolver<'s>) =
-    inherit Model<'s, 'm, IEmptyComputation>(init, update, EmptyComputation.compute, ?resolver=resolver)
+    inherit Model<'s, 'm, IEmptyComputation>(init, update, Computation.empty, ?resolver=resolver)
 
 [<RequireQualifiedAccess>]
 module Model =
