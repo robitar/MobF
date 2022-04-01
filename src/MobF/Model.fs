@@ -26,27 +26,9 @@ type IEmptyComputation = interface end
 /// Marker interface for extendable computations.
 type IExtendable<'T> = interface end
 
-module internal Expando =
-    let inline set value instance key =
-        emitJsStatement (instance, key, value) "$0[$1] = $2" |> ignore
-
-    let inline get key instance =
-        emitJsExpr<_ option> (instance, key) "$0[$1]"
-
-    let inline delete key instance =
-        emitJsStatement<_ option> (instance, key) "delete $0[$1]" |> ignore
-
-    let inline getOrSet factory instance key =
-        match (instance |> get key) with
-        | Some value -> value
-        | None ->
-            let value = factory ()
-            (instance, key) ||> set value
-            value
-
 module Computation =
-    let internal JSObject = JS.Constructors.Object
-    let internal annotationsSymbol = emitJsExpr<obj> null "Symbol('annotations')"
+    let private JSObject = JS.Constructors.Object
+    let private annotationsSymbol = emitJsExpr<obj> null "Symbol('annotations')"
 
     /// Defines an empty computation.
     let empty _ =
@@ -82,24 +64,28 @@ module Computation =
 
 [<AutoOpen>]
 module Extendable =
-    let internal stateSymbol = emitJsExpr<obj> null "Symbol('state')"
-    let internal extensionsSymbol = emitJsExpr<obj> null "Symbol('extensions')"
+    module Internal =
+        let internal stateSymbol = emitJsExpr<obj> null "Symbol('state')"
+        let internal extensionsSymbol = emitJsExpr<obj> null "Symbol('extensions')"
 
-    type IExtendable<'T> with
-        /// Extend computation with additional definitions.
-        member this.Extend(define: 'T -> 'E, [<Inject>] ?resolver: ITypeResolver<'E>) : 'E =
-            let key = resolver.Value.ResolveType().FullName
-            let extensions = (this, extensionsSymbol) ||> Expando.getOrSet Dictionary<string, obj>
+        let extend (define: 'T -> 'E) (extensionType: Type) (computation: IExtendable<'T>) : 'E =
+            let key = extensionType.FullName
+            let extensions = (computation, extensionsSymbol) ||> Expando.getOrSet Dictionary<string, obj>
 
             match extensions.TryGetValue(key) with
             | true, value -> value :?> 'E
             | false, _ ->
-                match (this |> Expando.get stateSymbol) with
+                match (computation |> Expando.get stateSymbol) with
                 | None -> failwith "This type does not support extension"
                 | Some (state: IModelStorage<'T>) ->
                     let value = Computation.create (define state.Read)
                     extensions.Add(key, value)
                     value
+
+    type IExtendable<'T> with
+        /// Extend computation with additional definitions.
+        member inline this.Extend(define: 'T -> 'E) : 'E =
+            this |> Internal.extend define typeof<'E>
 
 type Post<'m> = ('m -> unit)
 
@@ -108,8 +94,8 @@ type Update<'s, 'm, 'd> = ('s * Post<'m> * 'd  -> 'm -> 's)
 type Compute<'s, 'd> = ('s -> 'd)
 
 /// Reactive state which accepts update messages and supports computed properties.
-type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute: Compute<'s, 'd>, [<Inject>] ?resolver: ITypeResolver<'s>) as this =
-    let t = resolver.Value.ResolveType()
+type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute: Compute<'s, 'd>, stateType: Type) as this =
+    let t = stateType
 
 #if DEBUG
     let ns = t.Namespace
@@ -174,7 +160,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
             queue.Clear()
             initMessages |> Seq.iter this.Post
 
-        (computed, stateSymbol) ||> Expando.set storage
+        (computed, Extendable.Internal.stateSymbol) ||> Expando.set storage
         ready <- true
 
     /// The current state.
@@ -232,8 +218,8 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     override _.ToString() = sprintf "%A" storage.Read
 
 /// Reactive state which accepts update messages.
-type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, [<Inject>] ?resolver: ITypeResolver<'s>) =
-    inherit Model<'s, 'm, IEmptyComputation>(init, update, Computation.empty, ?resolver=resolver)
+type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, stateType: Type) =
+    inherit Model<'s, 'm, IEmptyComputation>(init, update, Computation.empty, stateType)
 
 [<RequireQualifiedAccess>]
 module Model =
@@ -254,8 +240,8 @@ module Model =
         init, fun (state, post, _) msg -> update (state, post) msg
 
     /// Create a model with init and update functions.
-    let inline create (init, update) =
-        new Model<_, _>(init, update)
+    let inline create<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, _>) =
+        new Model<'s, 'm>(init, update, typeof<'s>)
 
     /// Use a function which can post messages and read computed values to
     /// update model state.
@@ -263,8 +249,8 @@ module Model =
         init, update
 
     /// Create a model with init, update and compute functions.
-    let inline createWithComputed compute (init, update) =
-        new Model<_, _, _>(init, update, compute)
+    let inline createWithComputed<'s, 'm, 'd> compute (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>) =
+        new Model<'s, 'm, 'd>(init, update, compute, typeof<'s>)
 
     /// Dispose a model and any dependent operations like subscriptions
     let inline dispose (model: Model<_, _, _>) =

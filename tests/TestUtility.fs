@@ -64,7 +64,7 @@ module Note =
         |> Model.createWithComputed compute
 
 module GlobalJsDom =
-    let cleanup() = importDefault<unit> "global-jsdom/esm/index"
+    let cleanup() = importDefault<unit> "global-jsdom"
 
 // fsharplint:disable
 
