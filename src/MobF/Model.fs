@@ -87,8 +87,8 @@ module Extendable =
 
     type IExtendable<'T> with
         /// Extend computation with additional definitions.
-        member this.Extend(define: 'T -> 'E, [<Inject>] ?resolver: ITypeResolver<'E>) : 'E =
-            let key = resolver.Value.ResolveType().FullName
+        member inline this.Extend(define: 'T -> 'E) : 'E =
+            let key = typeof<'E>.FullName
             let extensions = (this, extensionsSymbol) ||> Expando.getOrSet Dictionary<string, obj>
 
             match extensions.TryGetValue(key) with
@@ -108,8 +108,8 @@ type Update<'s, 'm, 'd> = ('s * Post<'m> * 'd  -> 'm -> 's)
 type Compute<'s, 'd> = ('s -> 'd)
 
 /// Reactive state which accepts update messages and supports computed properties.
-type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute: Compute<'s, 'd>, [<Inject>] ?resolver: ITypeResolver<'s>) as this =
-    let t = resolver.Value.ResolveType()
+type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute: Compute<'s, 'd>, stateType: Type) as this =
+    let t = stateType
 
 #if DEBUG
     let ns = t.Namespace
@@ -232,8 +232,8 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     override _.ToString() = sprintf "%A" storage.Read
 
 /// Reactive state which accepts update messages.
-type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, [<Inject>] ?resolver: ITypeResolver<'s>) =
-    inherit Model<'s, 'm, IEmptyComputation>(init, update, Computation.empty, ?resolver=resolver)
+type Model<'s, 'm>(init: Init<'s, 'm>, update: Update<'s, 'm, IEmptyComputation>, stateType: Type) =
+    inherit Model<'s, 'm, IEmptyComputation>(init, update, Computation.empty, stateType)
 
 [<RequireQualifiedAccess>]
 module Model =
@@ -254,8 +254,8 @@ module Model =
         init, fun (state, post, _) msg -> update (state, post) msg
 
     /// Create a model with init and update functions.
-    let inline create (init, update) =
-        new Model<_, _>(init, update)
+    let inline create<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, _>) =
+        new Model<'s, 'm>(init, update, typeof<'s>)
 
     /// Use a function which can post messages and read computed values to
     /// update model state.
@@ -263,8 +263,8 @@ module Model =
         init, update
 
     /// Create a model with init, update and compute functions.
-    let inline createWithComputed compute (init, update) =
-        new Model<_, _, _>(init, update, compute)
+    let inline createWithComputed<'s, 'm, 'd> compute (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>) =
+        new Model<'s, 'm, 'd>(init, update, compute, typeof<'s>)
 
     /// Dispose a model and any dependent operations like subscriptions
     let inline dispose (model: Model<_, _, _>) =
