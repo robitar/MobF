@@ -26,27 +26,9 @@ type IEmptyComputation = interface end
 /// Marker interface for extendable computations.
 type IExtendable<'T> = interface end
 
-module internal Expando =
-    let inline set value instance key =
-        emitJsStatement (instance, key, value) "$0[$1] = $2" |> ignore
-
-    let inline get key instance =
-        emitJsExpr<_ option> (instance, key) "$0[$1]"
-
-    let inline delete key instance =
-        emitJsStatement<_ option> (instance, key) "delete $0[$1]" |> ignore
-
-    let inline getOrSet factory instance key =
-        match (instance |> get key) with
-        | Some value -> value
-        | None ->
-            let value = factory ()
-            (instance, key) ||> set value
-            value
-
 module Computation =
-    let internal JSObject = JS.Constructors.Object
-    let internal annotationsSymbol = emitJsExpr<obj> null "Symbol('annotations')"
+    let private JSObject = JS.Constructors.Object
+    let private annotationsSymbol = emitJsExpr<obj> null "Symbol('annotations')"
 
     /// Defines an empty computation.
     let empty _ =
@@ -82,24 +64,28 @@ module Computation =
 
 [<AutoOpen>]
 module Extendable =
-    let internal stateSymbol = emitJsExpr<obj> null "Symbol('state')"
-    let internal extensionsSymbol = emitJsExpr<obj> null "Symbol('extensions')"
+    module Internal =
+        let internal stateSymbol = emitJsExpr<obj> null "Symbol('state')"
+        let internal extensionsSymbol = emitJsExpr<obj> null "Symbol('extensions')"
 
-    type IExtendable<'T> with
-        /// Extend computation with additional definitions.
-        member inline this.Extend(define: 'T -> 'E) : 'E =
-            let key = typeof<'E>.FullName
-            let extensions = (this, extensionsSymbol) ||> Expando.getOrSet Dictionary<string, obj>
+        let extend (define: 'T -> 'E) (extensionType: Type) (computation: IExtendable<'T>) : 'E =
+            let key = extensionType.FullName
+            let extensions = (computation, extensionsSymbol) ||> Expando.getOrSet Dictionary<string, obj>
 
             match extensions.TryGetValue(key) with
             | true, value -> value :?> 'E
             | false, _ ->
-                match (this |> Expando.get stateSymbol) with
+                match (computation |> Expando.get stateSymbol) with
                 | None -> failwith "This type does not support extension"
                 | Some (state: IModelStorage<'T>) ->
                     let value = Computation.create (define state.Read)
                     extensions.Add(key, value)
                     value
+
+    type IExtendable<'T> with
+        /// Extend computation with additional definitions.
+        member inline this.Extend(define: 'T -> 'E) : 'E =
+            this |> Internal.extend define typeof<'E>
 
 type Post<'m> = ('m -> unit)
 
@@ -174,7 +160,7 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
             queue.Clear()
             initMessages |> Seq.iter this.Post
 
-        (computed, stateSymbol) ||> Expando.set storage
+        (computed, Extendable.Internal.stateSymbol) ||> Expando.set storage
         ready <- true
 
     /// The current state.

@@ -8,7 +8,7 @@ open Fable.Core.JsInterop
 open MobF
 open MobF.React
 
-importSideEffects "global-jsdom/esm/register"
+importSideEffects "global-jsdom/register"
 
 module Colour =
     type State =
