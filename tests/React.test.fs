@@ -90,13 +90,28 @@ let buildCases (makeAdapter: unit -> ITestAdapter) =
             Should |> Expect.equal (result |> getRenderedColour) "Red"
         )
 
-        testCase "should render updated state" <| renderTest makeAdapter (fun adapter result ->
-            adapter.Model.Post(Colour.Green)
-            adapter.Model.Post(Colour.Blue)
+        testCaseAsync "should render updated state" <| async {
+            try
+                let adapter = makeAdapter()
 
-            Should |> Expect.equal adapter.RenderCount 3
-            Should |> Expect.equal (result |> getRenderedColour) "Blue"
-        )
+                let waitForRender step = async {
+                    while adapter.RenderCount <> step do
+                        do! Async.Sleep 0
+                }
+
+                let result = ReactTestingLibrary.render(adapter.CreateElement())
+
+                adapter.Model.Post(Colour.Green)
+                do! waitForRender 2
+
+                adapter.Model.Post(Colour.Blue)
+                do! waitForRender 3
+
+                Should |> Expect.equal (result |> getRenderedColour) "Blue"
+
+            finally
+                ReactTestingLibrary.cleanup()
+        }
 
         testCase "should ignore identical state changes" <| renderTest makeAdapter (fun adapter _ ->
             adapter.Model.Post(adapter.Model.State)

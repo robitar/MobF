@@ -21,7 +21,7 @@ do ()
 type ObserverComponentAttribute() =
     inherit MemberDeclarationPluginAttribute()
 
-    override _.FableMinimumVersion = "3.0"
+    override _.FableMinimumVersion = "4.0"
 
     override _.TransformCall(compiler, _, expr) =
         let elementType = expr.Type
@@ -42,13 +42,14 @@ type ObserverComponentAttribute() =
 
         | _ -> expr
 
-
     override _.Transform(compiler, _, decl) =
         let error reason =
             let message = sprintf "'%s' is not a valid [<ObserverComponent>] because %s" decl.Name reason
             compiler.LogWarning(message, ?range=decl.Body.Range)
 
-        if decl.Info.IsValue || decl.Info.IsGetter || decl.Info.IsSetter then
+        let info = compiler.GetMember(decl.MemberRef)
+
+        if info.IsValue || info.IsGetter || info.IsSetter then
             error "it is not a function"
             decl
 
@@ -65,11 +66,20 @@ type ObserverComponentAttribute() =
 
             let observer = makeImport "observer" "mobx-react-lite"
             let lambda = Fable.Lambda(decl.Args |> List.head, decl.Body, Some decl.Name)
-            let call = makeCall observer [lambda]
+            let call = makeCall observer [lambda] Fable.Any
 
             let identExpr = Fable.IdentExpr ident
             let setDisplayName = makeEmit "$0.displayName = $1" [identExpr; makeStringConstant decl.Name]
 
             let body = Fable.Let(ident, call, Fable.Sequential [setDisplayName; identExpr])
 
-            makeValueMember(decl.Name, decl.Info, body)
+            let info =
+                { makeObjValueMemberInfo info.CompiledName body.Type with IsInstance = false }
+                |> Fable.GeneratedValue
+                |> Fable.GeneratedMemberRef
+
+            { decl with 
+                MemberRef = info
+                Args = []
+                Body = body 
+            }
