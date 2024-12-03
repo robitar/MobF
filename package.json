@@ -1,6 +1,6 @@
 {
   "name": "mobf",
-  "version": "0.0.1",
+  "version": "0.9.2",
   "description": "MobX based reactive state management for Fable",
   "type": "module",
   "directories": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "dotnet build ./MobF.sln",
-    "test": "dotnet fable tests --exclude MobF.ObserverPlugin --outDir dist/tests && mocha dist/tests"
+    "test": "dotnet fable tests --exclude MobF.ObserverPlugin --configuration Debug -s --noCache --outDir dist/tests && mocha dist/tests"
   },
   "repository": {
     "type": "git",
@@ -21,15 +21,15 @@
   },
   "homepage": "https://github.com/robitar/MobF#readme",
   "dependencies": {
-    "mobx": "^6.9.0",
-    "mobx-react-lite": "^3.4.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "mobx": "^6.13.5",
+    "mobx-react-lite": "^4.0.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@testing-library/react": "^14.0.0",
-    "global-jsdom": "^8.8.0",
-    "jsdom": "^21.1.1",
-    "mocha": "^10.2.0"
+    "@testing-library/react": "^16.0.1",
+    "global-jsdom": "^25.0.0",
+    "jsdom": "^25.0.1",
+    "mocha": "^11.0.1"
   }
 }
