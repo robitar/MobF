@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.9.2</Version>
+    <Version>0.9.3</Version>
     <Authors>Robert Byrne</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/robitar/MobF</RepositoryUrl>

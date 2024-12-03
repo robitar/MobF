@@ -1,6 +1,6 @@
 {
   "name": "mobf",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "MobX based reactive state management for Fable",
   "type": "module",
   "directories": {
