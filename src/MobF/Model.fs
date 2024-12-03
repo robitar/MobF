@@ -122,7 +122,13 @@ type Model<'s, 'm, 'd> (init: Init<'s, 'm>, update: Update<'s, 'm, 'd>, compute:
     let computed = Computation.create (compute initialState)
 
     let storage =
-        if FSharpType.IsRecord(t) then
+        if t = typeof<Unit> then 
+            { new IModelStorage<_> with
+                member _.Read = unbox ()
+                member _.Write(_) = ()
+            }
+
+        elif FSharpType.IsRecord(t) then
             let annotations =
                 (createEmpty<MobX.AnnotationMap>, FSharpType.GetRecordFields(t))
                 ||> Array.fold (fun a x ->

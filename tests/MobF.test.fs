@@ -170,6 +170,18 @@ module Autosub =
         |> Model.andUpdateWithPost update
         |> Model.create
 
+module UnitModel =
+    type Msg = Msg
+    type Type = Model<Unit, Msg>
+
+    let create () : Type =
+        let init () = ()
+        let update s _ = s
+
+        Model.useInit init
+        |> Model.andUpdate update
+        |> Model.create
+
 let modelTests = testList "model" [
     testList "record types" [
         test "should create a model" {
@@ -263,7 +275,7 @@ let modelTests = testList "model" [
         ]
     ]
 
-    testList "class types" [
+    testList "other types" [
         test "should reject a class type" {
             expectThrows (fun () ->
                 Model.useInit ClassTask.init
@@ -271,6 +283,11 @@ let modelTests = testList "model" [
                 |> Model.create
                 |> ignore
             )
+        }
+
+        test "should allow unit type" {
+            let model = UnitModel.create ()
+            Should |> Expect.equal model.State ()
         }
     ]
 
