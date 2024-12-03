@@ -172,21 +172,23 @@ module Autosub =
 
 let modelTests = testList "model" [
     testList "record types" [
-        testCase "should create a model" <| fun () ->
+        test "should create a model" {
             let model = Task.create "foo"
 
             Should |> Expect.isFalse model.State.IsDone
             Should |> Expect.equal model.State.Description "foo"
+        }
 
-        testCase "should update a model" <| fun () ->
+        test "should update a model" {
             let model = Task.create "x"
 
             model.Post(Task.Describe "renamed")
 
             Should |> Expect.equal (model.State.Description) "renamed"
+        }
 
         testList "reactivity" [
-            testCase "should respond to changes" <| fun () ->
+            test "should respond to changes" {
                 let model = Task.create "x"
                 let counter = countReactions (fun () -> model.State.Description)
 
@@ -195,8 +197,9 @@ let modelTests = testList "model" [
                 model.Post(Task.Describe "c")
 
                 Should |> Expect.equal 3 counter.Value
+            }
 
-            testCase "should ignore unchanged fields" <| fun () ->
+            test "should ignore unchanged fields" {
                 let model = Task.create "x"
                 let counter = countReactions (fun () -> model.State.IsDone)
 
@@ -205,8 +208,9 @@ let modelTests = testList "model" [
                 model.Post(Task.Restart)
 
                 Should |> Expect.isZero counter.Value
+            }
 
-            testCase "should ignore unrelated fields" <| fun () ->
+            test "should ignore unrelated fields" {
                 let model = Task.create "x"
                 let countChangesToDone = countReactions (fun () -> model.State.IsDone)
                 let countChangesToName = countReactions (fun () -> model.State.Description)
@@ -217,23 +221,26 @@ let modelTests = testList "model" [
 
                 Should |> Expect.equal 3 countChangesToDone.Value
                 Should |> Expect.isZero countChangesToName.Value
+            }
         ]
     ]
 
     testList "union types" [
-        testCase "should create a model" <| fun () ->
+        test "should create a model" {
             let model = Input.create()
 
             Should |> Expect.equal Input.Idle model.State
+        }
 
-        testCase "should update a model" <| fun () ->
+        test "should update a model" {
             let model = Input.create<int>()
             model.Post(Input.Accepted 5)
 
             Should |> Expect.equal (Input.Accepted 5) model.State
+        }
 
         testList "reactivity" [
-            testCase "should respond to changes" <| fun () ->
+            test "should respond to changes" {
                 let model = Input.create()
                 let counter = countReactions (fun () -> model.State)
 
@@ -241,8 +248,9 @@ let modelTests = testList "model" [
                 model.Post(Input.Accepted 5)
 
                 Should |> Expect.equal 2 counter.Value
+            }
 
-            testCase "should disregard successive identical states" <| fun () ->
+            test "should disregard successive identical states" {
                 let model = Input.create()
                 let counter = countReactions (fun () -> model.State)
 
@@ -251,17 +259,19 @@ let modelTests = testList "model" [
                 model.Post(Input.Idle)
 
                 Should |> Expect.isZero counter.Value
+            }
         ]
     ]
 
     testList "class types" [
-        testCase "should reject a class type" <| fun () ->
+        test "should reject a class type" {
             expectThrows (fun () ->
                 Model.useInit ClassTask.init
                 |> Model.andUpdate ClassTask.update
                 |> Model.create
                 |> ignore
             )
+        }
     ]
 
     testList "computed" [
@@ -274,23 +284,25 @@ let modelTests = testList "model" [
 
             model
 
-        testCase "should evaluate a computation" <| fun () ->
+        test "should evaluate a computation" {
             let model = buildModel()
             let pending = model.Computed.PendingCount
 
             Should |> Expect.equal 3 pending
+        }
 
-        testCase "should react to computations" <| fun () ->
+        test "should react to computations" {
             let model = buildModel()
             let counter = countReactions (fun () -> model.Computed.PendingCount)
 
             model.State.Tasks |> List.iter (fun t -> t.Post(Task.Complete))
 
             Should |> Expect.equal 3 counter.Value
+        }
     ]
 
     testList "post" [
-        testCase "should post from init" <| fun () ->
+        test "should post from init" {
             let model = Posting.create ()
 
             let actual =
@@ -299,8 +311,9 @@ let modelTests = testList "model" [
                 | _ -> false
 
             Should |> Expect.isTrue actual
+        }
 
-        testCase "should dispatch after init completes" <| fun () ->
+        test "should dispatch after init completes" {
             let model = Posting.create ()
             model.State.PostFromInit "after-init"
 
@@ -310,8 +323,9 @@ let modelTests = testList "model" [
                 | _ -> false
 
             Should |> Expect.isTrue actual
+        }
 
-        testCase "should post from update" <| fun () ->
+        test "should post from update" {
             let model = Posting.create ()
 
             model.Post(Posting.Append "update")
@@ -322,6 +336,7 @@ let modelTests = testList "model" [
                 | _ -> false
 
             Should |> Expect.isTrue actual
+        }
     ]
 
     testList "subscription" [
@@ -342,15 +357,16 @@ let modelTests = testList "model" [
                 model.Post(Task.Describe "b")
                 model.Post(Task.Describe "c")
 
-            testCase "should trigger effects" <| fun () ->
+            test "should trigger effects" {
                 let model = Task.create "foo"
 
                 let counter = model |> effectCounter selectDescription
                 model |> postAbc
 
                 Should |> Expect.equal counter.Value 3
+            }
 
-            testCase "should trigger effects immediately" <| fun () ->
+            test "should trigger effects immediately" {
                 let model = Task.create "foo"
                 let mutable triggered = false
 
@@ -361,8 +377,9 @@ let modelTests = testList "model" [
                 |> ignore
 
                 Should |> Expect.isTrue triggered
+            }
 
-            testCase "should not trigger effects if data does not change" <| fun () ->
+            test "should not trigger effects if data does not change" {
                 let model = Task.create "foo"
                 let counter = model |> effectCounter selectDescription
 
@@ -371,8 +388,9 @@ let modelTests = testList "model" [
                 model.Post(Task.Describe "foo")
 
                 Should |> Expect.equal 0 counter.Value
+            }
 
-            testCase "should provide updated value to the effect" <| fun () ->
+            test "should provide updated value to the effect" {
                 let model = Task.create "foo"
 
                 let mutable values = List.empty
@@ -380,8 +398,9 @@ let modelTests = testList "model" [
                 model |> postAbc
 
                 Should |> Expect.equal ["c"; "b"; "a"] values
+            }
 
-            testCase "should cancel subscriptions" <| fun () ->
+            test "should cancel subscriptions" {
                 let model = Task.create "foo"
                 let counter = model |> effectCounter selectDescription
 
@@ -389,8 +408,9 @@ let modelTests = testList "model" [
                 model |> postAbc
 
                 Should |> Expect.equal 0 counter.Value
+            }
 
-            testCase "should cancel all subscriptions when model is disposed" <| fun () ->
+            test "should cancel all subscriptions when model is disposed" {
                 let model = Task.create "foo"
 
                 let c1 = model |> effectCounter selectDescription
@@ -404,8 +424,9 @@ let modelTests = testList "model" [
                 Should |> Expect.equal 0 c1.Value
                 Should |> Expect.equal 0 c2.Value
                 Should |> Expect.equal 0 c3.Value
+            }
 
-            testCase "should tolerate multiple attempts to dispose" <| fun () ->
+            test "should tolerate multiple attempts to dispose" {
                 let model = Task.create "foo"
 
                 let c1 = model |> effectCounter selectDescription
@@ -419,6 +440,7 @@ let modelTests = testList "model" [
 
                 Should |> Expect.equal 0 c1.Value
                 Should |> Expect.equal 0 c2.Value
+            }
         ]
 
         testList "auto" [
@@ -435,14 +457,15 @@ let modelTests = testList "model" [
             let shouldBeActive listener = assertActive true listener
             let shouldNotBeActive listener = assertActive false listener
 
-            testCase "should activate listener and target" <| fun () ->
+            test "should activate listener and target" {
                 let (listener, target) = makePair ()
                 listener |> subOne target
 
                 listener |> shouldBeActive
                 target |> shouldBeActive
+            }
 
-            testCase "should cancel the subscription when the listener is disposed" <| fun () ->
+            test "should cancel the subscription when the listener is disposed" {
                 let (listener, target) = makePair ()
 
                 listener |> subOne target
@@ -450,8 +473,9 @@ let modelTests = testList "model" [
 
                 listener |> shouldNotBeActive
                 target |> shouldNotBeActive
+            }
 
-            testCase "should cancel the subscription when the target is disposed" <| fun () ->
+            test "should cancel the subscription when the target is disposed" {
                 let (listener, target) = makePair ()
 
                 listener |> subOne target
@@ -459,8 +483,9 @@ let modelTests = testList "model" [
 
                 listener |> shouldNotBeActive
                 target |> shouldNotBeActive
+            }
 
-            testCase "should cancel all subscriptions when the target is disposed" <| fun () ->
+            test "should cancel all subscriptions when the target is disposed" {
                 let (a, b, c) = makeThree ()
 
                 a |> subOne c
@@ -470,16 +495,18 @@ let modelTests = testList "model" [
 
                 a |> shouldNotBeActive
                 b |> shouldNotBeActive
+            }
 
-            testCase "should trigger effects" <| fun () ->
+            test "should trigger effects" {
                 let (a, b) = makePair ()
 
                 a |> subOne b
                 b |> setOne 123
 
                 Should |> Expect.equal 123 a.State.One
+            }
 
-            testCase "should capture multiple subscriptions" <| fun () ->
+            test "should capture multiple subscriptions" {
                 let (a, b, c) = makeThree ()
 
                 a |> subOne b
@@ -490,8 +517,9 @@ let modelTests = testList "model" [
 
                 Should |> Expect.equal 123 a.State.One
                 Should |> Expect.equal 456 a.State.Two
+            }
 
-            testCase "should attach subscriptions to the right model in nested actions" <| fun () ->
+            test "should attach subscriptions to the right model in nested actions" {
                 let (listener, target) = makePair ()
 
                 listener.Post(Autosub.Invoke (fun () ->
@@ -507,6 +535,36 @@ let modelTests = testList "model" [
 
                 Should |> Expect.equal 123 target.State.One
                 Should |> Expect.equal 456 listener.State.Two
+            }
+        ]
+
+        testList "until" [
+            let effectCounter eval (model: Task.Model) =
+                let mutable count = 0
+                model
+                |> Subscribe.until
+                    (fun x -> x.Description)
+                    (fun _ -> 
+                        count <- count + 1
+                        eval count
+                    )
+
+                { new IDisposableCounter with
+                    member _.Value = count
+                    member _.Dispose () = ()
+                }
+
+            test "should dispose subscription when a condition has been met" {
+                let model = Task.create "foo"
+                
+                let eval n = n < 3
+                let counter = model |> effectCounter eval
+
+                for i in 0 .. 10 do
+                    model.Post(Task.Describe $"{i}")
+
+                Should |> Expect.equal counter.Value 3
+            }
         ]
     ]
 ]

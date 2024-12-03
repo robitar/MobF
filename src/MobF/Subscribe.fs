@@ -50,6 +50,27 @@ let manual select effect source =
 let manualImmediate select effect source =
     source |> manualImpl select effect true
 
+let private untilImpl (select: 'T -> 'a) (effect: 'a -> bool) (triggerImmediately: bool) (source: ISubscribable<'T>) =
+    let mutable sub = Unchecked.defaultof<_>
+
+    sub <-
+        source |> (if triggerImmediately then manualImmediate else manual)
+            select
+            (fun x ->
+                match sub, (effect x) with
+                | null, _ -> ()
+                | sub,  false -> sub.Dispose()
+                | _ -> ()
+            )
+
+///Create a subscription which endures until the effect returns false
+let until select effect source =
+    source |> untilImpl select effect false
+
+///Create a subscription with immediate effect which endures until that effect returns false
+let untilImmediate select effect source =
+    source |> untilImpl select effect true
+
 open Fable.Core.JsInterop
 open System.Collections.Generic
 

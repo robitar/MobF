@@ -38,12 +38,13 @@ open Analysis
 open Output
 
 let extensionTests = testList "extension" [
-    testCase "should compute an extended value" <| fun () ->
+    test "should compute an extended value" {
         let model = Note.create "foo"
         let actual = model.Computed.Metrics.Characters
         Should |> Expect.equal actual 3
+    }
 
-    testCase "should persist the computed definitions" <| fun () ->
+    test "should persist the computed definitions" {
         let model = Note.create ""
 
         model.Computed.Metrics.Characters |> ignore
@@ -51,8 +52,9 @@ let extensionTests = testList "extension" [
         model.Computed.Metrics.Characters |> ignore
 
         Should |> Expect.equal 1 (model.Computed.Metrics.CreationCount)
+    }
 
-    testCase "should respond to state changes" <| fun () ->
+    test "should respond to state changes" {
         let model = Note.create ""
         let counter = countReactions (fun () -> model.Computed.Metrics.Characters)
 
@@ -61,8 +63,9 @@ let extensionTests = testList "extension" [
         model.Post(Note.Edit "abc")
 
         Should |> Expect.equal counter.Value 3
+    }
 
-    testCase "should support multiple extensions" <| fun () ->
+    test "should support multiple extensions" {
         let model = Note.create "this is a test"
 
         let count = model.Computed.Metrics.Characters
@@ -70,6 +73,7 @@ let extensionTests = testList "extension" [
 
         Should |> Expect.equal count 14
         Should |> Expect.equal html "<p>this is a test</p>"
+    }
 ]
 
 Mocha.runTests extensionTests |> ignore

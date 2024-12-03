@@ -220,10 +220,10 @@ Model.useInit init
 ## Subscriptions
 
 Subscriptions allow you to trigger effects when observable data changes. The
-`Subscribe` module provides two kinds, manual and automatic. A manual
+`Subscribe` module provides three kinds, manual, automatic and until. A manual
 subscription is active until explicitly disposed. An automatic subscription is
-bound to the lifetimes of the listener and target, when either of them are
-disposed, the subscription is cancelled.
+bound to the lifetimes of the listener and target. An until subscription is
+active until the effect function returns false, at which point it is disposed. 
 
 Automatic subscriptions can only be registered within the context of an `init`
 or `update` function (or any functions called by them); where the current model

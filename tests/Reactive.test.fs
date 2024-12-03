@@ -24,12 +24,13 @@ let reactiveTests = testList "reactive" [
         a, b, c, sequence, counter
 
     testList "seq" [
-        testCase "should generate a sequence" <| fun () ->
+        test "should generate a sequence" {
             let _, _, _, sequence, _ = setup ()
 
             Should |> Expect.equal (sequence |> Seq.length) 3
+        }
 
-        testCase "should invoke the generator once when in a reactive context" <| fun () ->
+        test "should invoke the generator once when in a reactive context" {
             let _, _, _, sequence, counter = setup ()
 
             Reactive.autorun (fun () ->
@@ -40,8 +41,9 @@ let reactiveTests = testList "reactive" [
             |> ignore
 
             Should |> Expect.equal counter.Value 1
+        }
 
-        testCase "should react to changes" <| fun () ->
+        test "should react to changes" {
             let a, b, c, sequence, _ = setup ()
 
             let reactions = countReactions (fun () ->
@@ -53,8 +55,9 @@ let reactiveTests = testList "reactive" [
             c.Post(Note.Edit "3")
 
             Should |> Expect.equal reactions.Value 3
+        }
 
-        testCase "should regenerate values when state changes" <| fun () ->
+        test "should regenerate values when state changes" {
             let a, _, c, sequence, _ = setup ()
 
             Should |> Expect.isTrue (sequence |> List.ofSeq |> (=) [true; true; true])
@@ -63,6 +66,7 @@ let reactiveTests = testList "reactive" [
             c.Post(Note.Edit "3")
 
             Should |> Expect.isTrue (sequence |> List.ofSeq |> (=) [false; true; false])
+        }
     ]
 ]
 

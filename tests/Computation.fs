@@ -38,7 +38,7 @@ let computedTests = testList "computation" [
         note.Post(Note.Edit "jkl")
 
     testList "reactivity when computed results are logically equal" [
-        testCase "should not react for primative values" <| fun () ->
+        test "should not react for primative values" {
             let note = Note.create "abc"
             
             let reactions = countReactions (fun () -> 
@@ -48,8 +48,9 @@ let computedTests = testList "computation" [
             postEditsTo note
 
             Should |> Expect.equal reactions.Value 0
+        }
 
-        testCase "should react for complex values by default" <| fun () ->
+        test "should react for complex values by default" {
             let note = Note.create "abc"
 
             let reactions = countReactions (fun () -> 
@@ -59,8 +60,9 @@ let computedTests = testList "computation" [
             postEditsTo note
 
             Should |> Expect.equal reactions.Value 3
+        }
 
-        testCase "should not react for structural values" <| fun () ->
+        test "should not react for structural values" {
             let note = Note.create "abc"
 
             let reactions = countReactions (fun () ->
@@ -70,6 +72,7 @@ let computedTests = testList "computation" [
             postEditsTo note
 
             Should |> Expect.equal reactions.Value 0
+        }
     ]
 ]
 
