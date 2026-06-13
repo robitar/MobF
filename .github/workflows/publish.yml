@@ -1,0 +1,44 @@
+name: Publish to NuGet
+
+# Publishes MobF, MobF.React and MobF.ObserverPlugin to nuget.org.
+# Uses nuget.org Trusted Publishing (OIDC) — no long-lived API key is stored.
+# Trigger by publishing a GitHub Release (tag e.g. v0.9.4), or run manually.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required: lets the job request an OIDC token for Trusted Publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Pack
+        run: |
+          dotnet pack src/MobF/MobF.fsproj                       -c Release -o artifacts
+          dotnet pack src/MobF.React/MobF.React.fsproj           -c Release -o artifacts
+          dotnet pack src/MobF.ObserverPlugin/MobF.ObserverPlugin.fsproj -c Release -o artifacts
+
+      # Exchange the GitHub OIDC token for a short-lived (1 hour) nuget.org API key.
+      - name: NuGet login (OIDC -> temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}   # your nuget.org username (profile name), NOT your email
+
+      - name: NuGet push
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
