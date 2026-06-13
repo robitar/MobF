@@ -46,7 +46,7 @@ module FunctionSetup =
         { new ITestAdapter with
             member _.RenderCount = renders
             member _.Model = model
-            member _.CreateElement() = React.createElement(ColourView, (), [])
+            member _.CreateElement() = React.createElement(ColourView, null, [])
         }
 
 module ComponentSetup =

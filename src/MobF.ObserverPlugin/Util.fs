@@ -10,7 +10,8 @@ let makeIdent name: Fable.Ident = {
     IsCompilerGenerated = true
     IsThisArgument = false
     IsMutable = false
-    Range = None 
+    IsInlineIfLambda = false
+    Range = None
 }
 
 let makeStringConstant (x: string) =

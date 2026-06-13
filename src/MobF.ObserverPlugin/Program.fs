@@ -21,7 +21,7 @@ do ()
 type ObserverComponentAttribute() =
     inherit MemberDeclarationPluginAttribute()
 
-    override _.FableMinimumVersion = "4.0"
+    override _.FableMinimumVersion = "5.0"
 
     override _.TransformCall(compiler, _, expr) =
         let elementType = expr.Type
