@@ -23,11 +23,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Pack
-        run: |
-          dotnet pack src/MobF/MobF.fsproj                       -c Release -o artifacts
-          dotnet pack src/MobF.React/MobF.React.fsproj           -c Release -o artifacts
-          dotnet pack src/MobF.ObserverPlugin/MobF.ObserverPlugin.fsproj -c Release -o artifacts
+      # The src projects use GeneratePackageOnBuild + OutputPath=dist (see
+      # src/Directory.Build.props), so a Release build emits the three .nupkg
+      # files into dist/. (Using `dotnet pack -o` instead collides with that
+      # custom OutputPath and fails with NU5026 on a clean checkout.)
+      - name: Build and pack
+        run: dotnet build MobF.sln -c Release
 
       # Exchange the GitHub OIDC token for a short-lived (1 hour) nuget.org API key.
       - name: NuGet login (OIDC -> temp API key)
@@ -38,7 +39,7 @@ jobs:
 
       - name: NuGet push
         run: >
-          dotnet nuget push "artifacts/*.nupkg"
+          dotnet nuget push "dist/*.nupkg"
           --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
